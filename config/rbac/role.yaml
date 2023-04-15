@@ -1,0 +1,44 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - clusters
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepoes
+  - coderepoproviders
+  - products
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - deploymentruntimes
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - environments
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - products
+  verbs:
+  - get
+  - list
