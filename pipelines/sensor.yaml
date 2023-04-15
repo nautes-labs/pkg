@@ -1,0 +1,212 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: repo-39-init-pipeline
+  namespace: argo-events
+spec:
+  template:
+    serviceAccountName: argo-events-sa
+  dependencies:
+    - name: gitlab-dep
+      eventSourceName: webhook
+      eventName: repo-39
+      transform:
+        script: |-
+          if event.body.ref == "refs/heads/main" or event.body.ref == "refs/heads/master"
+          then
+            event.body.pipelinename='main.yaml'
+          elseif string.match(event.body.ref, "refs\/heads\/feature-") or string.match(event.body.ref, "refs\/heads\/bugfix-")
+          then
+            event.body.pipelinename='dev.yaml'
+          elseif string.match(event.body.ref, "refs\/heads\/release-") 
+          then
+            event.body.pipelinename=''
+          else
+            event.body.pipelinename=''
+          end
+          return event
+      filters:
+        data: 
+        - path: body.event_name
+          type: "string"
+          value: 
+          - "push"
+  triggers:
+    - template:
+        conditions: gitlab-dep
+        name: repo-39-init-pipeine
+        k8s:
+          operation: create
+          parameters:
+            - src:
+                dependencyName: gitlab-dep
+                dataKey: body.ref
+              dest: spec.params.0.value
+            - src:
+                dependencyName: gitlab-dep
+                dataKey: body.project.url
+              dest: spec.params.1.value
+            - src:
+                dependencyName: gitlab-dep
+                dataTemplate: "project-{{ .Input.body.project_id }}"
+              dest: metadata.namespace
+            - src:
+                dependencyName: gitlab-dep
+                dataTemplate: "project-{{ .Input.body.project_id }}"
+              dest: spec.params.2.value
+            - src:
+                dependencyName: gitlab-dep
+                dataKey: body.pipelinename
+              dest: spec.params.3.value
+            - src:
+                dependencyName: gitlab-dep
+                dataKey: body.project_id
+              dest: spec.pipelineSpec.tasks.2.params.3.value
+          source:
+            resource:
+              apiVersion: tekton.dev/v1beta1
+              kind: PipelineRun
+              metadata:
+                generateName: init-pipiline-
+              spec:
+                params:
+                - name: REVISION
+                  value: main
+                - name: url
+                  value: none
+                - name: namespace
+                  value: default
+                - name: runfile
+                  value: main.yaml
+                taskRunSpecs:
+                - pipelineTaskName: git-clone
+                  metadata:
+                    annotations:
+                      vault.hashicorp.com/agent-inject: 'true'
+                      vault.hashicorp.com/tls-secret: "ca"
+                      vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+                      vault.hashicorp.com/agent-pre-populate-only: "true"
+                      vault.hashicorp.com/role: 'project-39'
+                      vault.hashicorp.com/agent-run-as-user: '0' 
+                      vault.hashicorp.com/agent-run-as-group: '0'
+                      vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/gitlab/project-39/default/rw"
+                      vault.hashicorp.com/secret-volume-path-id_ecdsa: "/root/.ssh"
+                      vault.hashicorp.com/agent-inject-perms-id_ecdsa: '0400'
+                      vault.hashicorp.com/agent-inject-template-id_ecdsa: |
+                        {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+                        {{ .Data.data.deploykey }}
+                        {{- end -}}
+                - pipelineTaskName: nautes-reporter
+                  metadata:
+                    annotations:
+                      vault.hashicorp.com/agent-inject: 'true'
+                      vault.hashicorp.com/tls-secret: "ca"
+                      vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+                      vault.hashicorp.com/agent-pre-populate-only: "true"
+                      vault.hashicorp.com/role: 'project-39'
+                      vault.hashicorp.com/agent-run-as-user: '0' 
+                      vault.hashicorp.com/agent-run-as-group: '0'
+                      vault.hashicorp.com/agent-inject-secret-token: "git/data/gitlab/project-39/default/rw"
+                      vault.hashicorp.com/secret-volume-path-token: "/var"
+                      vault.hashicorp.com/agent-inject-perms-token: '0400'
+                      vault.hashicorp.com/agent-inject-template-token: |
+                        {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+                        {{ .Data.data.pipeline_monitor_access_token }}
+                        {{- end -}}
+                      vault.hashicorp.com/agent-inject-secret-ca.crt: "pki/data/default"
+                      vault.hashicorp.com/secret-volume-path-ca.crt: "/usr/local/share/ca-certificates"
+                      vault.hashicorp.com/agent-inject-perms-ca.crt: '0400'
+                      vault.hashicorp.com/agent-inject-template-ca.crt: |
+                        {{- with secret "pki/data/default" -}}
+                        {{ .Data.data.cacert }}
+                        {{- end -}}
+                pipelineSpec:
+                  params:
+                  - name: REVISION
+                  - name: url
+                  - name: namespace
+                  - name: runfile
+                  tasks:
+                  - name: git-clone
+                    taskRef:
+                      name: git-clone
+                      kind: ClusterTask
+                    workspaces:
+                    - name: output
+                      workspace: source-volume
+                    params:
+                    - name: url
+                      value: $(params.url)
+                    - name: sparseCheckoutDirectories
+                      value: pipelines
+                    - name: revision
+                      value: $(params.REVISION)
+                  - name: pipeline-run
+                    runAfter:
+                    - git-clone
+                    taskRef:
+                      name: kubernetes-actions
+                      kind: ClusterTask
+                    params:
+                      - name: image
+                        value: gcr.io/cloud-builders/kubectl@sha256:c373e04fcc64c448e6cf9ebdde6fe67bb8c10b0df682da9210e1e965606b3af6
+                      - name: script
+                        value: |
+                          COMMIT=$(tasks.git-clone.results.commit)
+                          SHORT_SHA=${COMMIT: 0: 8}
+                          SUFFIX=`openssl rand -hex 2`
+                          REF=$(params.REVISION)
+                          BRANCH=${REF/refs\/heads\//}
+
+                          cat > ./pipelines/kustomization.yaml << EOF
+                          apiVersion: kustomize.config.k8s.io/v1beta1
+                          kind: Kustomization
+                          resources:
+                          - $(params.runfile)
+                          nameSuffix: -${SHORT_SHA}-${SUFFIX}
+                          commonLabels:
+                            branch: $BRANCH
+                          patches:
+                          - patch: |-
+                              - op: replace
+                                path: /spec/params/0/value
+                                value: $(params.REVISION)
+                            target:
+                              kind: PipelineRun
+                          EOF
+                          cat ./pipelines/kustomization.yaml
+                          kubectl kustomize pipelines | kubectl -n $(params.namespace) create -f -
+                    workspaces:
+                    - name: manifest-dir
+                      workspace: source-volume
+                  - name: nautes-reporter
+                    runAfter:
+                    - pipeline-run
+                    taskRef:
+                      name: nautes-reporter
+                      kind: ClusterTask
+                    params:
+                      - name: GITLAB_URL
+                        value: https://gitlab.bluzin.io
+                      - name: TEKTON_URL
+                        value: http://tekton.pipeline1.bluzin.io:31489
+                      - name: BRANCH
+                        value: $(params.REVISION)
+                      - name: GITLAB_PROJECT_ID
+                        value: pid
+                      - name: COMMIT
+                        value: $(tasks.git-clone.results.commit)
+                      - name: REQUESTS_CA_BUNDLE
+                        value: /usr/local/share/ca-certificates/ca.crt
+                  workspaces:
+                  - name: source-volume
+                workspaces:
+                - name: source-volume
+                  volumeClaimTemplate:
+                    spec:
+                      accessModes:
+                        - ReadWriteOnce
+                      resources:
+                        requests:
+                          storage: 10M

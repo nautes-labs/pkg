@@ -1,0 +1,218 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: project-39-main-pipelinerun
+  namespace: "project-39"
+spec:
+  pipelineRef:
+    name: main-pipeline
+  params:
+  - name: REVISION
+    value: main
+  - name: BUILD_COMMAND
+    value: |
+      go build -o manager main.go
+  - name: TEST_IMAGE_NAME
+    value: "harbor.bluzin.io/library/golang-test:1.1"
+  - name: GOCACHE
+    value: "/go/.cache"
+  - name: CODE_REPO_URL
+    value: "ssh://git@gitlab.bluzin.io:2222/nautes-labs/pkg.git"
+  - name: DEPLOY_REPO_URL
+    value: "ssh://git@gitlab.bluzin.io:2222/nautes-labs/deployments-test.git"
+  - name: TEST_REPO_URL
+    value: "ssh://git@gitlab.bluzin.io:2222/nautes-labs/pkg-test.git"
+  - name: IMAGE_NAME
+    value: "harbor.bluzin.io/dev/webhook"
+  - name: SONAQUBE_KEY
+    value: "pkg"
+  - name: SONAQUBE_TOKEN
+    value: "sqp_ea1b07b841625068d0b14272460d9e6e6176aca6"
+  - name: DEPLOY_OVERWRITE_FILE
+    value: default/manager_image_patch.yaml
+  - name: DEPLOY_SUBPATH
+    value: crds
+  - name: DEPLOY_MODEL_PATH
+    value: config/*
+  - name: PRODUCT_NAME
+    value: default
+  - name: DEPLOYMENT_NAME
+    value: crds
+  - name: SKIP_INTERFACE_TEST
+    value: "true"
+  taskRunSpecs:
+  - pipelineTaskName: git-clone
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/tls-secret: "ca"
+        vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/role: 'project-39'
+        vault.hashicorp.com/agent-run-as-user: '0'
+        vault.hashicorp.com/agent-run-as-group: '0'
+        vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/gitlab/project-39/default/rw"
+        vault.hashicorp.com/secret-volume-path-id_ecdsa: "/root/.ssh"
+        vault.hashicorp.com/agent-inject-perms-id_ecdsa: '0400'
+        vault.hashicorp.com/agent-inject-template-id_ecdsa: |
+          {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+          {{ .Data.data.deploykey }}
+          {{- end -}}
+  - pipelineTaskName: go-pull-dependency
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/tls-secret: "ca"
+        vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/role: 'project-39'
+        vault.hashicorp.com/agent-run-as-user: '0'
+        vault.hashicorp.com/agent-run-as-group: '0'
+        vault.hashicorp.com/agent-inject-secret-gitlab_ca.crt: "pki/data/default"
+        vault.hashicorp.com/secret-volume-path-gitlab_ca.crt: "/usr/local/share/ca-certificates"
+        vault.hashicorp.com/agent-inject-perms-gitlab_ca.crt: '0400'
+        vault.hashicorp.com/agent-inject-template-gitlab_ca.crt: |
+          {{- with secret "pki/data/default" -}}
+          {{ .Data.data.cacert }}
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/gitlab/project-39/default/rw"
+        vault.hashicorp.com/secret-volume-path-id_ecdsa: "/root/.ssh"
+        vault.hashicorp.com/agent-inject-perms-id_ecdsa: '0400'
+        vault.hashicorp.com/agent-inject-template-id_ecdsa: |
+          {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+          {{ .Data.data.deploykey }}
+          {{- end -}}
+  - pipelineTaskName: image-build
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/tls-secret: "ca"
+        vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/role: 'project-39'
+        vault.hashicorp.com/agent-run-as-user: '0'
+        vault.hashicorp.com/agent-run-as-group: '0'
+        vault.hashicorp.com/agent-inject-secret-config.json: "repo/data/harbor1/container/repo-5/default/rw"
+        vault.hashicorp.com/secret-volume-path-config.json: "/kaniko/.docker"
+        vault.hashicorp.com/agent-inject-perms-config.json: '0400'
+        vault.hashicorp.com/agent-inject-template-config.json: |
+          {{- with secret "repo/data/harbor1/container/repo-5/default/rw" -}}
+          {
+            "auths": {
+              "harbor.bluzin.io": {
+                "auth": "{{ .Data.data.config }}"
+              }
+            }
+          }
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-ca.crt: "pki/data/default"
+        vault.hashicorp.com/secret-volume-path-ca.crt: "/usr/local/share/ca-certificates"
+        vault.hashicorp.com/agent-inject-perms-ca.crt: '0400'
+        vault.hashicorp.com/agent-inject-template-ca.crt: |
+          {{- with secret "pki/data/default" -}}
+          {{ .Data.data.cacert }}
+          {{- end -}}
+    taskPodTemplate:
+      hostAliases:
+        - ip: "10.204.118.213"
+          hostnames:
+          - "gcr.io"
+          - "docker.io"
+          - "index.docker.io"
+  - pipelineTaskName: git-clone-deploy
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/tls-secret: "ca"
+        vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/role: 'project-39'
+        vault.hashicorp.com/agent-run-as-user: '0'
+        vault.hashicorp.com/agent-run-as-group: '0'
+        vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/gitlab/project-39/default/rw"
+        vault.hashicorp.com/secret-volume-path-id_ecdsa: "/root/.ssh"
+        vault.hashicorp.com/agent-inject-perms-id_ecdsa: '0400'
+        vault.hashicorp.com/agent-inject-template-id_ecdsa: |
+          {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+          {{ .Data.data.deploykey }}
+          {{- end -}}
+  - pipelineTaskName: update-git-deployment-info
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/tls-secret: "ca"
+        vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/role: 'project-39'
+        vault.hashicorp.com/agent-run-as-user: '0' 
+        vault.hashicorp.com/agent-run-as-group: '0'
+        vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/gitlab/project-39/default/rw"
+        vault.hashicorp.com/secret-volume-path-id_ecdsa: "/root/.ssh"
+        vault.hashicorp.com/agent-inject-perms-id_ecdsa: '0400'
+        vault.hashicorp.com/agent-inject-template-id_ecdsa: |
+          {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+          {{ .Data.data.deploykey }}
+          {{- end -}}
+  - pipelineTaskName: test-case-clone
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/tls-secret: "ca"
+        vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/role: 'project-39'
+        vault.hashicorp.com/agent-run-as-user: '0'
+        vault.hashicorp.com/agent-run-as-group: '0'
+        vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/gitlab/project-39/default/rw"
+        vault.hashicorp.com/secret-volume-path-id_ecdsa: "/root/.ssh"
+        vault.hashicorp.com/agent-inject-perms-id_ecdsa: '0400'
+        vault.hashicorp.com/agent-inject-template-id_ecdsa: |
+          {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+          {{ .Data.data.deploykey }}
+          {{- end -}}
+  - pipelineTaskName: interface-test-pull-dependency
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/tls-secret: "ca"
+        vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/role: 'project-39'
+        vault.hashicorp.com/agent-run-as-user: '0'
+        vault.hashicorp.com/agent-run-as-group: '0'
+        vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/gitlab/project-39/default/rw"
+        vault.hashicorp.com/secret-volume-path-id_ecdsa: "/root/.ssh"
+        vault.hashicorp.com/agent-inject-perms-id_ecdsa: '0400'
+        vault.hashicorp.com/agent-inject-template-id_ecdsa: |
+          {{- with secret "git/data/gitlab/project-39/default/rw" -}}
+          {{ .Data.data.deploykey }}
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-ca.crt: "pki/data/default"
+        vault.hashicorp.com/secret-volume-path-ca.crt: "/usr/local/share/ca-certificates"
+        vault.hashicorp.com/agent-inject-perms-ca.crt: '0400'
+        vault.hashicorp.com/agent-inject-template-ca.crt: |
+          {{- with secret "pki/data/default" -}}
+          {{ .Data.data.cacert }}
+          {{- end -}}
+  workspaces:
+  - name: source-volume
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100M
+  - name: test-case
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100M
+  - name: go-path
+    persistentVolumeClaim:
+      claimName: go-tmp
+  - name: sonar-settings
+    emptyDir: {}
