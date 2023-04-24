@@ -36,50 +36,75 @@ spec:
           spec:
             description: ProjectPipelineRuntimeSpec defines the desired state of ProjectPipelineRuntime
             properties:
-              codesources:
-                description: Other code repos used in pipeline.
-                items:
-                  type: string
-                type: array
               destination:
-                description: Target environment for running the pipeline.
+                description: The target environment for running the pipeline.
                 type: string
-              pipelines:
-                description: Definition of pipeline.
+              eventsource:
+                description: Events source that may trigger the pipeline.
                 items:
                   properties:
-                    branch:
-                      description: Branch name, wildcard support.
-                      type: string
-                    eventsource:
-                      description: Definition of events that trigger pipeline
-                      items:
-                        properties:
-                          calendar:
-                            properties:
-                              exclusionDates:
-                                description: ExclusionDates defines the list of DATE-TIME
-                                  exceptions for recurring events.
-                                items:
-                                  type: string
-                                type: array
-                              interval:
-                                description: Interval is a string that describes an
-                                  interval duration, e.g. 1s, 30m, 2h...
-                                type: string
-                              schedule:
-                                description: 'Schedule is a cron-like expression.
-                                  For reference, see: https://en.wikipedia.org/wiki/Cron'
-                                type: string
-                              timezone:
-                                description: Timezone in which to run the schedule
-                                type: string
-                            type: object
-                          webhook:
-                            description: disabled or enabled
+                    calendar:
+                      properties:
+                        exclusionDates:
+                          description: ExclusionDates defines the list of DATE-TIME
+                            exceptions for recurring events.
+                          items:
                             type: string
-                        type: object
-                      type: array
+                          type: array
+                        interval:
+                          description: Interval is a string that describes an interval
+                            duration, e.g. 1s, 30m, 2h...
+                          type: string
+                        schedule:
+                          description: 'Schedule is a cron-like expression. For reference,
+                            see: https://en.wikipedia.org/wiki/Cron'
+                          type: string
+                        timezone:
+                          description: Timezone in which to run the schedule
+                          type: string
+                      type: object
+                    gitlab:
+                      properties:
+                        events:
+                          description: 'Gitlab webhook events: PushEvents, TagPushEvents,
+                            etc.'
+                          items:
+                            type: string
+                          type: array
+                        repoName:
+                          description: Gitlab project name.
+                          type: string
+                        revision:
+                          description: Supports wildcards.
+                          type: string
+                      type: object
+                  type: object
+                type: array
+              isolation:
+                description: 'Isolation definition of pipeline runtime related resources:
+                  shared(default) or exclusive'
+                type: string
+              pipeline_triggers:
+                items:
+                  description: The definition of event source triggered pipeline mode.
+                  properties:
+                    eventSource:
+                      type: string
+                    pipeline:
+                      type: string
+                    revision:
+                      description: Optional, does not support wildcards. If it is
+                        empty, the trigger will determine the revision of the pipeline
+                        based on the revision of the event source.
+                      type: string
+                  type: object
+                type: array
+              pipelines:
+                description: The definition of pipeline.
+                items:
+                  description: The definition of a multi-branch pipeline.One pipeline
+                    corresponds to one declaration file in the Git repository.
+                  properties:
                     label:
                       description: Default is 'default'
                       type: string
@@ -89,18 +114,19 @@ spec:
                       description: Pipeline manifest path, wildcard support.
                       type: string
                   required:
-                  - eventsource
                   - label
                   type: object
                 type: array
               pipelinesource:
-                description: Code repo for pipeline manifests.
+                description: The code repo for pipeline manifests.
                 type: string
               project:
                 type: string
             required:
             - destination
-            - pipelinesource
+            - eventsource
+            - isolation
+            - pipeline_triggers
             type: object
           status:
             description: ProjectPipelineRuntimeStatus defines the observed state of

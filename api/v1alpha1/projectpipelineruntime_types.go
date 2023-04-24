@@ -21,51 +21,65 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type CalendarEventSource struct {
+type Gitlab struct {
+	// Gitlab project name.
+	RepoName string `json:"repoName,omitempty"`
+	// Supports wildcards.
+	Revision string `json:"revision,omitempty"`
+	// Gitlab webhook events: PushEvents, TagPushEvents, etc.
+	Events []string `json:"events,omitempty"`
+}
+
+type Calendar struct {
 	// Schedule is a cron-like expression. For reference, see: https://en.wikipedia.org/wiki/Cron
 	// +optional
-	Schedule string `json:"schedule" protobuf:"bytes,1,opt,name=schedule"`
+	Schedule string `json:"schedule"`
 	// Interval is a string that describes an interval duration, e.g. 1s, 30m, 2h...
 	// +optional
-	Interval string `json:"interval" protobuf:"bytes,2,opt,name=interval"`
+	Interval string `json:"interval"`
 	// ExclusionDates defines the list of DATE-TIME exceptions for recurring events.
-	ExclusionDates []string `json:"exclusionDates,omitempty" protobuf:"bytes,3,rep,name=exclusionDates"`
+	ExclusionDates []string `json:"exclusionDates,omitempty"`
 	// Timezone in which to run the schedule
 	// +optional
-	Timezone string `json:"timezone,omitempty" protobuf:"bytes,4,opt,name=timezone"`
+	Timezone string `json:"timezone,omitempty"`
 }
 
 type EventSource struct {
-	// disabled or enabled
-	Webhook  string              `json:"webhook,omitempty"`
-	Calendar CalendarEventSource `json:"calendar,omitempty"`
+	Gitlab   Gitlab   `json:"gitlab,omitempty"`
+	Calendar Calendar `json:"calendar,omitempty"`
 }
 
+// The definition of event source triggered pipeline mode.
+type PipelineTrigger struct {
+	EventSource string `json:"eventSource,omitempty"`
+	Pipeline    string `json:"pipeline,omitempty"`
+	// Optional, does not support wildcards. If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source.
+	Revision string `json:"revision,omitempty"`
+}
+
+// The definition of a multi-branch pipeline.One pipeline corresponds to one declaration file in the Git repository.
 type Pipeline struct {
 	Name string `json:"name,omitempty"`
 	// Default is 'default'
 	Label string `json:"label"`
-	// Branch name, wildcard support.
-	Branch string `json:"branch,omitempty"`
 	// Pipeline manifest path, wildcard support.
 	Path string `json:"path,omitempty"`
-	// Definition of events that trigger pipeline
-	EventSources []EventSource `json:"eventsource"`
 }
 
 // ProjectPipelineRuntimeSpec defines the desired state of ProjectPipelineRuntime
 type ProjectPipelineRuntimeSpec struct {
 	Project string `json:"project,omitempty"`
-	// Code repo for pipeline manifests.
-	PipelineSource string `json:"pipelinesource"`
-	// Other code repos used in pipeline.
-	// +optional
-	CodeSources []string `json:"codesources,omitempty"`
-	// Definition of pipeline.
-	// +optional
+	// The code repo for pipeline manifests.
+	PipelineSource string `json:"pipelinesource,omitempty"`
+	// The definition of pipeline.
 	Pipelines []Pipeline `json:"pipelines,omitempty"`
-	// Target environment for running the pipeline.
+	// The target environment for running the pipeline.
 	Destination string `json:"destination"`
+	// Events source that may trigger the pipeline.
+	EventSources []EventSource `json:"eventsource"`
+	// Isolation definition of pipeline runtime related resources: shared(default) or exclusive
+	Isolation        string            `json:"isolation"`
+	PipelineTriggers []PipelineTrigger `json:"pipeline_triggers"`
 }
 
 func (r *ProjectPipelineRuntime) GetProduct() string {
