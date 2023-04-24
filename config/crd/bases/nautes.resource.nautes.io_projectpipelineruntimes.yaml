@@ -78,6 +78,8 @@ spec:
                           description: Supports wildcards.
                           type: string
                       type: object
+                    name:
+                      type: string
                   type: object
                 type: array
               isolation:
@@ -113,8 +115,6 @@ spec:
                     path:
                       description: Pipeline manifest path, wildcard support.
                       type: string
-                  required:
-                  - label
                   type: object
                 type: array
               pipelinesource:
@@ -122,11 +122,6 @@ spec:
                 type: string
               project:
                 type: string
-            required:
-            - destination
-            - eventsource
-            - isolation
-            - pipeline_triggers
             type: object
           status:
             description: ProjectPipelineRuntimeStatus defines the observed state of

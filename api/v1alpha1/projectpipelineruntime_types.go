@@ -33,10 +33,10 @@ type Gitlab struct {
 type Calendar struct {
 	// Schedule is a cron-like expression. For reference, see: https://en.wikipedia.org/wiki/Cron
 	// +optional
-	Schedule string `json:"schedule"`
+	Schedule string `json:"schedule,omitempty"`
 	// Interval is a string that describes an interval duration, e.g. 1s, 30m, 2h...
 	// +optional
-	Interval string `json:"interval"`
+	Interval string `json:"interval,omitempty"`
 	// ExclusionDates defines the list of DATE-TIME exceptions for recurring events.
 	ExclusionDates []string `json:"exclusionDates,omitempty"`
 	// Timezone in which to run the schedule
@@ -45,6 +45,7 @@ type Calendar struct {
 }
 
 type EventSource struct {
+	Name     string   `json:"name,omitempty"`
 	Gitlab   Gitlab   `json:"gitlab,omitempty"`
 	Calendar Calendar `json:"calendar,omitempty"`
 }
@@ -61,7 +62,7 @@ type PipelineTrigger struct {
 type Pipeline struct {
 	Name string `json:"name,omitempty"`
 	// Default is 'default'
-	Label string `json:"label"`
+	Label string `json:"label,omitempty"`
 	// Pipeline manifest path, wildcard support.
 	Path string `json:"path,omitempty"`
 }
@@ -74,12 +75,12 @@ type ProjectPipelineRuntimeSpec struct {
 	// The definition of pipeline.
 	Pipelines []Pipeline `json:"pipelines,omitempty"`
 	// The target environment for running the pipeline.
-	Destination string `json:"destination"`
+	Destination string `json:"destination,omitempty"`
 	// Events source that may trigger the pipeline.
-	EventSources []EventSource `json:"eventsource"`
+	EventSources []EventSource `json:"eventsource,omitempty"`
 	// Isolation definition of pipeline runtime related resources: shared(default) or exclusive
-	Isolation        string            `json:"isolation"`
-	PipelineTriggers []PipelineTrigger `json:"pipeline_triggers"`
+	Isolation        string            `json:"isolation,omitempty"`
+	PipelineTriggers []PipelineTrigger `json:"pipeline_triggers,omitempty"`
 }
 
 func (r *ProjectPipelineRuntime) GetProduct() string {
