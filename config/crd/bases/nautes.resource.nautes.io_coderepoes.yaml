@@ -72,11 +72,8 @@ spec:
                     items:
                       type: string
                     type: array
-                  isolation:
-                    type: string
                 required:
                 - events
-                - isolation
                 type: object
             type: object
           status:
