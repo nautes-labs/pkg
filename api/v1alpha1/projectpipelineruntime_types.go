@@ -45,9 +45,9 @@ type Calendar struct {
 }
 
 type EventSource struct {
-	Name     string   `json:"name,omitempty"`
-	Gitlab   Gitlab   `json:"gitlab,omitempty"`
-	Calendar Calendar `json:"calendar,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Gitlab   *Gitlab   `json:"gitlab,omitempty"`
+	Calendar *Calendar `json:"calendar,omitempty"`
 }
 
 // The definition of event source triggered pipeline mode.
