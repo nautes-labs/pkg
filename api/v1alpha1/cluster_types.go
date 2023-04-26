@@ -68,6 +68,24 @@ type ClusterStatus struct {
 	MgtAuthStatus *MgtClusterAuthStatus `json:"mgtAuthStatus,omitempty" yaml:"mgtAuthStatus"`
 	// +optional
 	Sync2ArgoStatus *SyncCluster2ArgoStatus `json:"sync2ArgoStatus,omitempty" yaml:"sync2ArgoStatus"`
+	// +optional
+	// +nullable
+	EntryPoints map[string]ClusterEntryPoint `json:"entryPoints,omitempty" yaml:"entryPoints"`
+}
+
+type ServiceType string
+
+const (
+	ServiceTypeNodePort     ServiceType = "NodePort"
+	ServiceTypeLoadBalancer ServiceType = "LoadBalancer"
+	ServiceTypeExternalName ServiceType = "ExternalName"
+)
+
+type ClusterEntryPoint struct {
+	// The port of entry point service
+	HTTPPort  int32       `json:"httpPort,omitempty" yaml:"httpPort"`
+	HTTPSPort int32       `json:"httpsPort,omitempty" yaml:"httpsPort"`
+	Type      ServiceType `json:"type,omitempty" yaml:"type"`
 }
 
 type MgtClusterAuthStatus struct {
