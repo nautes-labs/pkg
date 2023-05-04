@@ -57,6 +57,9 @@ type ClusterSpec struct {
 	Usage ClusterUsage `json:"usage" yaml:"usage"`
 	// +optional
 	HostCluster string `json:"hostcluster" yaml:"hostcluster"`
+	// PrimaryDomain is used to build the domain of components within the cluster
+	// optional
+	PrimaryDomain string `json:"primaryDomain" yaml:"primaryDomain"`
 }
 
 // ClusterStatus defines the observed state of Cluster
