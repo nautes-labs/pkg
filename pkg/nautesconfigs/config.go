@@ -19,11 +19,13 @@ import (
 )
 
 type Config struct {
-	Nautes Nautes     `yaml:"nautes"`
-	OAuth  OAuth      `yaml:"OAuth"`
-	Git    GitRepo    `yaml:"git"`
-	Deploy DeployApp  `yaml:"deploy"`
-	Secret SecretRepo `yaml:"secret"`
+	Deploy   DeployApp  `yaml:"deploy"`
+	EventBus EventBus   `yaml:"eventbus"`
+	Git      GitRepo    `yaml:"git"`
+	Nautes   Nautes     `yaml:"nautes"`
+	OAuth    OAuth      `yaml:"OAuth"`
+	Pipeline Pipeline   `yaml:"pipeline"`
+	Secret   SecretRepo `yaml:"secret"`
 }
 
 type GitType string
@@ -63,6 +65,15 @@ func NewConfig(cfgString string) (*Config, error) {
 				"Runtime": "runtime-controller-manager",
 			},
 		},
+		EventBus: EventBus{
+			DefaultApp: map[string]EventBusType{
+				"kubernetes": EventBusTypeArgoEvent,
+			},
+			ArgoEvents: ArgoEvents{
+				Namespace:              "argo-events",
+				TemplateServiceAccount: "argo-events-sa",
+			},
+		},
 		OAuth: OAuth{
 			OAuthType: OAuthTypeDex,
 		},
@@ -73,8 +84,7 @@ func NewConfig(cfgString string) (*Config, error) {
 			DefaultDeployKeyType: "ecdsa",
 		},
 		Deploy: DeployApp{
-			Type: DEPLOY_APP_TYPE_ARGOCD,
-			DefaultDeployApp: map[string]DeployAppType{
+			DefaultApp: map[string]DeployAppType{
 				"kubernetes": DEPLOY_APP_TYPE_ARGOCD,
 			},
 			ArgoCD: ArgoCD{
@@ -85,6 +95,11 @@ func NewConfig(cfgString string) (*Config, error) {
 						DefaultProject: "production",
 					},
 				},
+			},
+		},
+		Pipeline: Pipeline{
+			DefaultApp: map[string]PipelineType{
+				"kubernetes": PipelineTypeTekton,
 			},
 		},
 		Secret: SecretRepo{

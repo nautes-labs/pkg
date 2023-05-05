@@ -77,7 +77,7 @@ type ProjectPipelineRuntimeSpec struct {
 	// The target environment for running the pipeline.
 	Destination string `json:"destination,omitempty"`
 	// Events source that may trigger the pipeline.
-	EventSources []EventSource `json:"eventsource,omitempty"`
+	EventSources []EventSource `json:"eventsources,omitempty"`
 	// Isolation definition of pipeline runtime related resources: shared(default) or exclusive
 	Isolation        string            `json:"isolation,omitempty"`
 	PipelineTriggers []PipelineTrigger `json:"pipeline_triggers,omitempty"`
@@ -87,10 +87,34 @@ func (r *ProjectPipelineRuntime) GetProduct() string {
 	return r.Namespace
 }
 
+func (r *ProjectPipelineRuntime) GetDestination() string {
+	return r.Spec.Destination
+}
+
+func (r *ProjectPipelineRuntime) GetEventSource(name string) (*EventSource, error) {
+	for _, eventSource := range r.Spec.EventSources {
+		if eventSource.Name == name {
+			return &eventSource, nil
+		}
+	}
+
+	return nil, fmt.Errorf("can not find event source %s in runtime", name)
+}
+
+func (r *ProjectPipelineRuntime) GetPipeline(name string) (*Pipeline, error) {
+	for _, pipeline := range r.Spec.Pipelines {
+		if pipeline.Name == name {
+			return &pipeline, nil
+		}
+	}
+
+	return nil, fmt.Errorf("can not find pipeline %s in runtime", name)
+}
+
 // ProjectPipelineRuntimeStatus defines the observed state of ProjectPipelineRuntime
 type ProjectPipelineRuntimeStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" yaml:"conditions"`
 }
 
 //+kubebuilder:object:root=true
