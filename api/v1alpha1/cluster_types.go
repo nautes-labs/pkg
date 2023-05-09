@@ -60,6 +60,9 @@ type ClusterSpec struct {
 	// PrimaryDomain is used to build the domain of components within the cluster
 	// optional
 	PrimaryDomain string `json:"primaryDomain" yaml:"primaryDomain"`
+	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
+	// optional
+	WokerType string `json:"wokerType" yaml:"wokerType"`
 }
 
 // ClusterStatus defines the observed state of Cluster

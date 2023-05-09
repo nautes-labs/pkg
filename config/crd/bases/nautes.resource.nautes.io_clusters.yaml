@@ -63,6 +63,10 @@ spec:
                 type: string
               hostcluster:
                 type: string
+              primaryDomain:
+                description: PrimaryDomain is used to build the domain of components
+                  within the cluster optional
+                type: string
               usage:
                 description: the usage of cluster, for user use it directry or deploy
                   vcluster on it
@@ -70,10 +74,16 @@ spec:
                 - host
                 - worker
                 type: string
+              wokerType:
+                description: pipeline or deployment, when the cluster usage is 'worker',
+                  the WorkType is required. optional
+                type: string
             required:
             - apiserver
             - clustertype
+            - primaryDomain
             - usage
+            - wokerType
             type: object
           status:
             description: ClusterStatus defines the observed state of Cluster
