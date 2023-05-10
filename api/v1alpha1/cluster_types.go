@@ -27,6 +27,7 @@ type ClusterType string
 type ClusterKind string
 type ClusterUsage string
 type ClusterSyncStatus string
+type ClusterWorkType string
 
 const (
 	CLUSTER_KIND_KUBERNETES ClusterKind = "kubernetes"
@@ -40,6 +41,11 @@ const (
 const (
 	CLUSTER_USAGE_HOST   ClusterUsage = "host"
 	CLUSTER_USAGE_WORKER ClusterUsage = "worker"
+)
+
+const (
+	DEPLOYMENT_TYPE ClusterWorkType = "deployment"
+	PIPELINE_TYPE   ClusterWorkType = "pipeline"
 )
 
 // ClusterSpec defines the desired state of Cluster
@@ -65,7 +71,7 @@ type ClusterSpec struct {
 	// +nullable
 	// +kubebuilder:validation:Enum="";pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
-	WokerType string `json:"wokerType" yaml:"wokerType"`
+	WokerType ClusterWorkType `json:"wokerType" yaml:"wokerType"`
 }
 
 // ClusterStatus defines the observed state of Cluster
