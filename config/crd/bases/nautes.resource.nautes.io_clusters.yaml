@@ -75,7 +75,7 @@ spec:
                 - host
                 - worker
                 type: string
-              wokerType:
+              workerType:
                 description: pipeline or deployment, when the cluster usage is 'worker',
                   the WorkType is required.
                 enum:
