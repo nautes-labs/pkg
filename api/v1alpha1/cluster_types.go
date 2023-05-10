@@ -57,11 +57,12 @@ type ClusterSpec struct {
 	Usage ClusterUsage `json:"usage" yaml:"usage"`
 	// +optional
 	HostCluster string `json:"hostcluster" yaml:"hostcluster"`
+	// +optional
 	// PrimaryDomain is used to build the domain of components within the cluster
-	// optional
 	PrimaryDomain string `json:"primaryDomain" yaml:"primaryDomain"`
+	// +optional
+	// +kubebuilder:validation:Enum=pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
-	// optional
 	WokerType string `json:"wokerType" yaml:"wokerType"`
 }
 
