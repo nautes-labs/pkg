@@ -71,7 +71,7 @@ type ClusterSpec struct {
 	// +nullable
 	// +kubebuilder:validation:Enum="";pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
-	WokerType ClusterWorkType `json:"wokerType" yaml:"wokerType"`
+	WorkerType ClusterWorkType `json:"wokerType" yaml:"workerType"`
 }
 
 // ClusterStatus defines the observed state of Cluster
