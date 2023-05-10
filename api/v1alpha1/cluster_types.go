@@ -63,7 +63,7 @@ type ClusterSpec struct {
 	PrimaryDomain string `json:"primaryDomain" yaml:"primaryDomain"`
 	// +optional
 	// +nullable
-	// +kubebuilder:validation:Enum=pipeline;deployment
+	// +kubebuilder:validation:Enum="";pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
 	WokerType string `json:"wokerType" yaml:"wokerType"`
 }

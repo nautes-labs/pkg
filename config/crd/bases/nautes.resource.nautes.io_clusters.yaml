@@ -79,6 +79,7 @@ spec:
                 description: pipeline or deployment, when the cluster usage is 'worker',
                   the WorkType is required.
                 enum:
+                - ""
                 - pipeline
                 - deployment
                 nullable: true
