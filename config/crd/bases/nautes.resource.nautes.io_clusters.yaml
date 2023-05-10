@@ -66,6 +66,7 @@ spec:
               primaryDomain:
                 description: PrimaryDomain is used to build the domain of components
                   within the cluster
+                nullable: true
                 type: string
               usage:
                 description: the usage of cluster, for user use it directry or deploy
@@ -80,6 +81,7 @@ spec:
                 enum:
                 - pipeline
                 - deployment
+                nullable: true
                 type: string
             required:
             - apiserver
