@@ -79,6 +79,7 @@ spec:
                           type: string
                       type: object
                     name:
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                   type: object
                 type: array
@@ -111,6 +112,7 @@ spec:
                       description: Default is 'default'
                       type: string
                     name:
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     path:
                       description: Pipeline manifest path, wildcard support.

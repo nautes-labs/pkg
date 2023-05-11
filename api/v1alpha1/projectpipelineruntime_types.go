@@ -45,6 +45,7 @@ type Calendar struct {
 }
 
 type EventSource struct {
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	Name     string    `json:"name,omitempty"`
 	Gitlab   *Gitlab   `json:"gitlab,omitempty"`
 	Calendar *Calendar `json:"calendar,omitempty"`
@@ -60,6 +61,7 @@ type PipelineTrigger struct {
 
 // The definition of a multi-branch pipeline.One pipeline corresponds to one declaration file in the Git repository.
 type Pipeline struct {
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	Name string `json:"name,omitempty"`
 	// Default is 'default'
 	Label string `json:"label,omitempty"`
