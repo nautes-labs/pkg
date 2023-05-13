@@ -129,6 +129,8 @@ spec:
             description: ProjectPipelineRuntimeStatus defines the observed state of
               ProjectPipelineRuntime
             properties:
+              cluster:
+                type: string
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
@@ -196,6 +198,61 @@ spec:
                   - status
                   - type
                   type: object
+                type: array
+              illegalEventSources:
+                description: IllegalEventSources records eventsources that will not
+                  be synchronized to the environment, and why it will not be synchronized
+                  to the past
+                items:
+                  properties:
+                    eventSource:
+                      properties:
+                        calendar:
+                          properties:
+                            exclusionDates:
+                              description: ExclusionDates defines the list of DATE-TIME
+                                exceptions for recurring events.
+                              items:
+                                type: string
+                              type: array
+                            interval:
+                              description: Interval is a string that describes an
+                                interval duration, e.g. 1s, 30m, 2h...
+                              type: string
+                            schedule:
+                              description: 'Schedule is a cron-like expression. For
+                                reference, see: https://en.wikipedia.org/wiki/Cron'
+                              type: string
+                            timezone:
+                              description: Timezone in which to run the schedule
+                              type: string
+                          type: object
+                        gitlab:
+                          properties:
+                            events:
+                              description: 'Gitlab webhook events: PushEvents, TagPushEvents,
+                                etc.'
+                              items:
+                                type: string
+                              type: array
+                            repoName:
+                              description: Gitlab project name.
+                              type: string
+                            revision:
+                              description: Supports wildcards.
+                              type: string
+                          type: object
+                        name:
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      type: object
+                    reason:
+                      type: string
+                  required:
+                  - eventSource
+                  - reason
+                  type: object
+                nullable: true
                 type: array
             type: object
         type: object

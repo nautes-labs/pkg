@@ -117,6 +117,18 @@ func (r *ProjectPipelineRuntime) GetPipeline(name string) (*Pipeline, error) {
 type ProjectPipelineRuntimeStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" yaml:"conditions"`
+	// +optional
+	Cluster string `json:"cluster,omitempty"`
+	// +optional
+	// +nullable
+	// IllegalEventSources records eventsources that will not be synchronized to the environment,
+	// and why it will not be synchronized to the past
+	IllegalEventSources []IllegalEventSource `json:"illegalEventSources"`
+}
+
+type IllegalEventSource struct {
+	EventSource EventSource `json:"eventSource"`
+	Reason      string      `json:"reason"`
 }
 
 //+kubebuilder:object:root=true
