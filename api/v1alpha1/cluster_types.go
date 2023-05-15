@@ -62,16 +62,16 @@ type ClusterSpec struct {
 	// +kubebuilder:validation:Enum=host;worker
 	Usage ClusterUsage `json:"usage" yaml:"usage"`
 	// +optional
-	HostCluster string `json:"hostcluster" yaml:"hostcluster"`
+	HostCluster string `json:"hostcluster,omitempty" yaml:"hostcluster"`
 	// +optional
 	// +nullable
 	// PrimaryDomain is used to build the domain of components within the cluster
-	PrimaryDomain string `json:"primaryDomain" yaml:"primaryDomain"`
+	PrimaryDomain string `json:"primaryDomain,omitempty" yaml:"primaryDomain"`
 	// +optional
 	// +nullable
 	// +kubebuilder:validation:Enum="";pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
-	WorkerType ClusterWorkType `json:"workerType" yaml:"workerType"`
+	WorkerType ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
 }
 
 // ClusterStatus defines the observed state of Cluster
