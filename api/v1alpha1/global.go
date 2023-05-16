@@ -19,9 +19,12 @@ import (
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	// KubernetesClient create from webhook main.go, it use to validate resource is legal
+	KubernetesClient client.Client
 )
 
 func GetConditions(conditions []metav1.Condition, conditionTypes map[string]bool) []metav1.Condition {
@@ -79,20 +82,8 @@ func findConditionIndexByType(conditions []metav1.Condition, t string) int {
 }
 
 func getClient() (client.Client, error) {
-	cfg, err := ctrl.GetConfig()
-	if err != nil {
-		clusterlog.Error(err, "create kubernetes info failed")
-		return nil, err
+	if KubernetesClient == nil {
+		return nil, fmt.Errorf("kubernetes client is not initializated")
 	}
-	scheme := runtime.NewScheme()
-	if err := AddToScheme(scheme); err != nil {
-		clusterlog.Error(err, "add scheme failed")
-		return nil, err
-	}
-	k8sClient, err := client.New(cfg, client.Options{Scheme: scheme})
-	if err != nil {
-		clusterlog.Error(err, "create kubernetes client failed")
-		return nil, err
-	}
-	return k8sClient, nil
+	return KubernetesClient, nil
 }

@@ -61,6 +61,7 @@ type DeployHistory struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=dr
 //+kubebuilder:printcolumn:name="Destination",type=string,JSONPath=".spec.destination"
 //+kubebuilder:printcolumn:name="CodeRepo",type=string,JSONPath=".spec.manifestSource.codeRepo"
 

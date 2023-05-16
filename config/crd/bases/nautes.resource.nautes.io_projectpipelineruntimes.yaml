@@ -12,10 +12,19 @@ spec:
     kind: ProjectPipelineRuntime
     listKind: ProjectPipelineRuntimeList
     plural: projectpipelineruntimes
+    shortNames:
+    - ppr
     singular: projectpipelineruntime
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.project
+      name: Project
+      type: string
+    - jsonPath: .spec.pipelinesource
+      name: Source
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ProjectPipelineRuntime is the Schema for the projectpipelineruntimes

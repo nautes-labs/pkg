@@ -133,6 +133,9 @@ type IllegalEventSource struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=ppr
+//+kubebuilder:printcolumn:name="Project",type=string,JSONPath=".spec.project"
+//+kubebuilder:printcolumn:name="Source",type=string,JSONPath=".spec.pipelinesource"
 
 // ProjectPipelineRuntime is the Schema for the projectpipelineruntimes API
 type ProjectPipelineRuntime struct {

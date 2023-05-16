@@ -15,7 +15,14 @@ spec:
     singular: coderepobinding
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.product
+      name: PRODUCTRESOURCENAME
+      type: string
+    - jsonPath: .spec.coderepo
+      name: CODEREPORESOURCENAME
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CodeRepoBinding is the Schema for the coderepobindings API

@@ -4,6 +4,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	CodeRepoBindingPermissionReadOnly  = "readonly"
+	CodeRepoBindingPermissionReadWrite = "readwrite"
+)
+
 // CodeRepoBindingSpec defines the desired state of CodeRepoBinding
 type CodeRepoBindingSpec struct {
 	// Authorized Code Repository.
@@ -24,6 +29,8 @@ type CodeRepoBindingStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="PRODUCTRESOURCENAME",type=string,JSONPath=".spec.product"
+//+kubebuilder:printcolumn:name="CODEREPORESOURCENAME",type=string,JSONPath=".spec.coderepo"
 
 // CodeRepoBinding is the Schema for the coderepobindings API
 type CodeRepoBinding struct {
