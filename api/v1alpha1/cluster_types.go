@@ -64,11 +64,9 @@ type ClusterSpec struct {
 	// +optional
 	HostCluster string `json:"hostcluster,omitempty" yaml:"hostcluster"`
 	// +optional
-	// +nullable
 	// PrimaryDomain is used to build the domain of components within the cluster
 	PrimaryDomain string `json:"primaryDomain,omitempty" yaml:"primaryDomain"`
 	// +optional
-	// +nullable
 	// +kubebuilder:validation:Enum="";pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
 	WorkerType ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
