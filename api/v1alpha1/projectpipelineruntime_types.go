@@ -73,16 +73,16 @@ type Pipeline struct {
 type ProjectPipelineRuntimeSpec struct {
 	Project string `json:"project,omitempty"`
 	// The code repo for pipeline manifests.
-	PipelineSource string `json:"pipelinesource,omitempty"`
+	PipelineSource string `json:"pipelineSource,omitempty"`
 	// The definition of pipeline.
 	Pipelines []Pipeline `json:"pipelines,omitempty"`
 	// The target environment for running the pipeline.
 	Destination string `json:"destination,omitempty"`
 	// Events source that may trigger the pipeline.
-	EventSources []EventSource `json:"eventsources,omitempty"`
+	EventSources []EventSource `json:"eventSources,omitempty"`
 	// Isolation definition of pipeline runtime related resources: shared(default) or exclusive
 	Isolation        string            `json:"isolation,omitempty"`
-	PipelineTriggers []PipelineTrigger `json:"pipeline_triggers,omitempty"`
+	PipelineTriggers []PipelineTrigger `json:"pipelineTriggers,omitempty"`
 }
 
 func (r *ProjectPipelineRuntime) GetProduct() string {

@@ -48,7 +48,7 @@ spec:
               destination:
                 description: The target environment for running the pipeline.
                 type: string
-              eventsources:
+              eventSources:
                 description: Events source that may trigger the pipeline.
                 items:
                   properties:
@@ -96,7 +96,10 @@ spec:
                 description: 'Isolation definition of pipeline runtime related resources:
                   shared(default) or exclusive'
                 type: string
-              pipeline_triggers:
+              pipelineSource:
+                description: The code repo for pipeline manifests.
+                type: string
+              pipelineTriggers:
                 items:
                   description: The definition of event source triggered pipeline mode.
                   properties:
@@ -128,9 +131,6 @@ spec:
                       type: string
                   type: object
                 type: array
-              pipelinesource:
-                description: The code repo for pipeline manifests.
-                type: string
               project:
                 type: string
             type: object
