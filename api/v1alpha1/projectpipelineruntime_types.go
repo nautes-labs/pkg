@@ -23,6 +23,7 @@ import (
 
 type Gitlab struct {
 	// Gitlab project name.
+	// +kubebuilder:validation:MinLength=1
 	RepoName string `json:"repoName,omitempty"`
 	// Supports wildcards.
 	Revision string `json:"revision,omitempty"`
@@ -46,15 +47,22 @@ type Calendar struct {
 
 type EventSource struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-	Name     string    `json:"name,omitempty"`
-	Gitlab   *Gitlab   `json:"gitlab,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+	// +optional
+	Gitlab *Gitlab `json:"gitlab,omitempty"`
+	// +optional
 	Calendar *Calendar `json:"calendar,omitempty"`
 }
 
 // The definition of event source triggered pipeline mode.
 type PipelineTrigger struct {
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+	// +kubebuilder:validation:MinLength=1
 	EventSource string `json:"eventSource,omitempty"`
-	Pipeline    string `json:"pipeline,omitempty"`
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+	// +kubebuilder:validation:MinLength=1
+	Pipeline string `json:"pipeline,omitempty"`
 	// Optional, does not support wildcards. If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source.
 	Revision string `json:"revision,omitempty"`
 }
@@ -62,6 +70,7 @@ type PipelineTrigger struct {
 // The definition of a multi-branch pipeline.One pipeline corresponds to one declaration file in the Git repository.
 type Pipeline struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 	// Default is 'default'
 	Label string `json:"label,omitempty"`

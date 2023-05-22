@@ -109,6 +109,10 @@ func (r *ProjectPipelineRuntime) Validate(validateClient PipelineRuntimeValidate
 	productName := r.Namespace
 	projectName := r.Spec.Project
 
+	if err := projectPipelineRuntimeStaticCheck(*r); err != nil {
+		return nil, err
+	}
+
 	if err := checkPermissionEventSourceCodeRepo(validateClient, productName, projectName, r.Spec.PipelineSource); err != nil {
 		return nil, err
 	}
@@ -130,6 +134,43 @@ func (r *ProjectPipelineRuntime) Validate(validateClient PipelineRuntimeValidate
 	}
 
 	return illegalEvnentSources, nil
+}
+
+func projectPipelineRuntimeStaticCheck(runtime ProjectPipelineRuntime) error {
+	eventSourceNames := make(map[string]bool, 0)
+	for _, es := range runtime.Spec.EventSources {
+		if eventSourceNames[es.Name] {
+			return fmt.Errorf("event source %s is duplicate", es.Name)
+		}
+		eventSourceNames[es.Name] = true
+	}
+
+	pipelineNames := make(map[string]bool, 0)
+	for _, pipeline := range runtime.Spec.Pipelines {
+		if pipelineNames[pipeline.Name] {
+			return fmt.Errorf("pipeline %s is duplicate", pipeline.Name)
+		}
+		pipelineNames[pipeline.Name] = true
+	}
+
+	triggerTags := make(map[string]bool, 0)
+	for _, trigger := range runtime.Spec.PipelineTriggers {
+		if !eventSourceNames[trigger.EventSource] {
+			return fmt.Errorf("found non-existent event source %s in trigger", trigger.EventSource)
+		}
+
+		if !pipelineNames[trigger.Pipeline] {
+			return fmt.Errorf("found non-existent pipeline %s in trigger", trigger.Pipeline)
+		}
+
+		tag := fmt.Sprintf("%s|%s|%s", trigger.EventSource, trigger.Pipeline, trigger.Revision)
+		if triggerTags[tag] {
+			return fmt.Errorf("trigger is duplicate, event source %s, pipeline %s, trigger %s", trigger.EventSource, trigger.Pipeline, trigger.Revision)
+		}
+		triggerTags[tag] = true
+	}
+
+	return nil
 }
 
 func checkPermissionEventSourceCodeRepo(validateClient PipelineRuntimeValidateClient, productName, projectName, repoName string) error {

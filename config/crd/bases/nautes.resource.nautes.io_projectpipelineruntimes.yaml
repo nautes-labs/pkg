@@ -82,12 +82,14 @@ spec:
                           type: array
                         repoName:
                           description: Gitlab project name.
+                          minLength: 1
                           type: string
                         revision:
                           description: Supports wildcards.
                           type: string
                       type: object
                     name:
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                   type: object
@@ -104,8 +106,12 @@ spec:
                   description: The definition of event source triggered pipeline mode.
                   properties:
                     eventSource:
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     pipeline:
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     revision:
                       description: Optional, does not support wildcards. If it is
@@ -124,6 +130,7 @@ spec:
                       description: Default is 'default'
                       type: string
                     name:
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     path:
@@ -246,12 +253,14 @@ spec:
                               type: array
                             repoName:
                               description: Gitlab project name.
+                              minLength: 1
                               type: string
                             revision:
                               description: Supports wildcards.
                               type: string
                           type: object
                         name:
+                          minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       type: object
