@@ -12,7 +12,7 @@ const (
 // CodeRepoBindingSpec defines the desired state of CodeRepoBinding
 type CodeRepoBindingSpec struct {
 	// Authorized Code Repository.
-	CodeRepo string `json:"coderepo,omitempty"`
+	CodeRepo string `json:"codeRepo,omitempty"`
 	// The Code repo is authorized to this product or projects under it.
 	Product string `json:"product,omitempty"`
 	// If the project list is empty, it means that the code repo is authorized to the product.

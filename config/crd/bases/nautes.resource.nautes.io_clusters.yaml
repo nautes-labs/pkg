@@ -48,7 +48,7 @@ spec:
           spec:
             description: ClusterSpec defines the desired state of Cluster
             properties:
-              apiserver:
+              apiServer:
                 pattern: https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)
                 type: string
               clusterKind:
@@ -56,12 +56,12 @@ spec:
                 enum:
                 - kubernetes
                 type: string
-              clustertype:
+              clusterType:
                 enum:
                 - physical
                 - virtual
                 type: string
-              hostcluster:
+              hostCluster:
                 type: string
               primaryDomain:
                 description: PrimaryDomain is used to build the domain of components
@@ -83,8 +83,8 @@ spec:
                 - deployment
                 type: string
             required:
-            - apiserver
-            - clustertype
+            - apiServer
+            - clusterType
             - usage
             type: object
           status:

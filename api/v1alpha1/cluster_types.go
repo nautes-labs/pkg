@@ -51,9 +51,9 @@ const (
 // ClusterSpec defines the desired state of Cluster
 type ClusterSpec struct {
 	// +kubebuilder:validation:Pattern=`https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)`
-	ApiServer string `json:"apiserver" yaml:"apiserver"`
+	ApiServer string `json:"apiServer" yaml:"apiServer"`
 	// +kubebuilder:validation:Enum=physical;virtual
-	ClusterType ClusterType `json:"clustertype" yaml:"clustertype"`
+	ClusterType ClusterType `json:"clusterType" yaml:"clusterType"`
 	// +optional
 	// +kubebuilder:default:=kubernetes
 	// +kubebuilder:validation:Enum=kubernetes
@@ -62,7 +62,7 @@ type ClusterSpec struct {
 	// +kubebuilder:validation:Enum=host;worker
 	Usage ClusterUsage `json:"usage" yaml:"usage"`
 	// +optional
-	HostCluster string `json:"hostcluster,omitempty" yaml:"hostcluster"`
+	HostCluster string `json:"hostCluster,omitempty" yaml:"hostCluster"`
 	// +optional
 	// PrimaryDomain is used to build the domain of components within the cluster
 	PrimaryDomain string `json:"primaryDomain,omitempty" yaml:"primaryDomain"`

@@ -42,7 +42,7 @@ spec:
           spec:
             description: CodeRepoBindingSpec defines the desired state of CodeRepoBinding
             properties:
-              coderepo:
+              codeRepo:
                 description: Authorized Code Repository.
                 type: string
               permissions:
