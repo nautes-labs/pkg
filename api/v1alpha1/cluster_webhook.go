@@ -38,10 +38,6 @@ func (r *Cluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=environments,verbs=get;list
-
 //+kubebuilder:webhook:path=/mutate-nautes-resource-nautes-io-v1alpha1-cluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=clusters,verbs=create,versions=v1alpha1,name=vcluster.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Cluster{}
@@ -53,6 +49,9 @@ func (r *Cluster) Default() {
 }
 
 //+kubebuilder:webhook:path=/validate-nautes-resource-nautes-io-v1alpha1-cluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=clusters,verbs=create;update;delete,versions=v1alpha1,name=vcluster.kb.io,admissionReviewVersions=v1
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list;watch
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=environments,verbs=get;list;watch
 
 var _ webhook.Validator = &Cluster{}
 

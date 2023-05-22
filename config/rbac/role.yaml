@@ -12,6 +12,23 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepobindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepoes
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
@@ -28,6 +45,7 @@ rules:
   verbs:
   - get
   - list
+  - watch
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
@@ -35,6 +53,7 @@ rules:
   verbs:
   - get
   - list
+  - watch
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
