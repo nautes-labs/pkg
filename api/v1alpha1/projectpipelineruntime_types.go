@@ -25,9 +25,9 @@ type Gitlab struct {
 	// Gitlab project name.
 	// +kubebuilder:validation:MinLength=1
 	RepoName string `json:"repoName,omitempty"`
-	// Supports wildcards.
+	// Supports regular expressions.
 	Revision string `json:"revision,omitempty"`
-	// Gitlab webhook events: PushEvents, TagPushEvents, etc.
+	// Gitlab webhook events: push_events, tag_push_events, etc.
 	Events []string `json:"events,omitempty"`
 }
 
@@ -63,7 +63,8 @@ type PipelineTrigger struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
 	Pipeline string `json:"pipeline,omitempty"`
-	// Optional, does not support wildcards. If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source.
+	// Optional
+	// Regular expressions are not supported.
 	Revision string `json:"revision,omitempty"`
 }
 

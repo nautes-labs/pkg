@@ -75,7 +75,7 @@ spec:
                     gitlab:
                       properties:
                         events:
-                          description: 'Gitlab webhook events: PushEvents, TagPushEvents,
+                          description: 'Gitlab webhook events: push_events, tag_push_events,
                             etc.'
                           items:
                             type: string
@@ -85,7 +85,7 @@ spec:
                           minLength: 1
                           type: string
                         revision:
-                          description: Supports wildcards.
+                          description: Supports regular expressions.
                           type: string
                       type: object
                     name:
@@ -114,9 +114,7 @@ spec:
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     revision:
-                      description: Optional, does not support wildcards. If it is
-                        empty, the trigger will determine the revision of the pipeline
-                        based on the revision of the event source.
+                      description: Optional Regular expressions are not supported.
                       type: string
                   type: object
                 type: array
@@ -246,7 +244,7 @@ spec:
                         gitlab:
                           properties:
                             events:
-                              description: 'Gitlab webhook events: PushEvents, TagPushEvents,
+                              description: 'Gitlab webhook events: push_events, tag_push_events,
                                 etc.'
                               items:
                                 type: string
@@ -256,7 +254,7 @@ spec:
                               minLength: 1
                               type: string
                             revision:
-                              description: Supports wildcards.
+                              description: Supports regular expressions.
                               type: string
                           type: object
                         name:
