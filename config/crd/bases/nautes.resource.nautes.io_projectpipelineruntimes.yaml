@@ -114,7 +114,9 @@ spec:
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     revision:
-                      description: Optional Regular expressions are not supported.
+                      description: Optional Regular expressions are not supported,
+                        If it is empty, the trigger will determine the revision of
+                        the pipeline based on the revision of the event source
                       type: string
                   type: object
                 type: array

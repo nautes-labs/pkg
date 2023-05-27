@@ -64,7 +64,7 @@ type PipelineTrigger struct {
 	// +kubebuilder:validation:MinLength=1
 	Pipeline string `json:"pipeline,omitempty"`
 	// Optional
-	// Regular expressions are not supported.
+	// Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
 	Revision string `json:"revision,omitempty"`
 }
 
