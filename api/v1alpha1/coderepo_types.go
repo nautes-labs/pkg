@@ -27,8 +27,7 @@ const (
 )
 
 type Webhook struct {
-	Events    []string `json:"events" yaml:"events"`
-	Isolation string   `json:"isolation" yaml:"isolation"`
+	Events []string `json:"events" yaml:"events"`
 }
 
 // CodeRepoSpec defines the desired state of CodeRepo

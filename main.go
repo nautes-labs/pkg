@@ -15,7 +15,9 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -26,6 +28,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -75,6 +78,17 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+	nautesv1alpha1.KubernetesClient = mgr.GetClient()
+	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepo{}, nautesv1alpha1.SelectFieldCodeRepoName, func(obj client.Object) []string {
+		return []string{obj.GetName()}
+	})
+	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepoBinding{}, nautesv1alpha1.SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {
+		binding := obj.(*nautesv1alpha1.CodeRepoBinding)
+		if binding.Spec.Product == "" || binding.Spec.CodeRepo == "" {
+			return nil
+		}
+		return []string{fmt.Sprintf("%s/%s", binding.Spec.Product, binding.Spec.CodeRepo)}
+	})
 
 	if err = (&nautesv1alpha1.Cluster{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Cluster")
@@ -94,6 +108,10 @@ func main() {
 	}
 	if err = (&nautesv1alpha1.DeploymentRuntime{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DeploymentRuntime")
+		os.Exit(1)
+	}
+	if err = (&nautesv1alpha1.ProjectPipelineRuntime{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "ProjectPipelineRuntime")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

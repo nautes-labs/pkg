@@ -27,6 +27,7 @@ type ClusterType string
 type ClusterKind string
 type ClusterUsage string
 type ClusterSyncStatus string
+type ClusterWorkType string
 
 const (
 	CLUSTER_KIND_KUBERNETES ClusterKind = "kubernetes"
@@ -42,12 +43,17 @@ const (
 	CLUSTER_USAGE_WORKER ClusterUsage = "worker"
 )
 
+const (
+	DEPLOYMENT_TYPE ClusterWorkType = "deployment"
+	PIPELINE_TYPE   ClusterWorkType = "pipeline"
+)
+
 // ClusterSpec defines the desired state of Cluster
 type ClusterSpec struct {
 	// +kubebuilder:validation:Pattern=`https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)`
-	ApiServer string `json:"apiserver" yaml:"apiserver"`
+	ApiServer string `json:"apiServer" yaml:"apiServer"`
 	// +kubebuilder:validation:Enum=physical;virtual
-	ClusterType ClusterType `json:"clustertype" yaml:"clustertype"`
+	ClusterType ClusterType `json:"clusterType" yaml:"clusterType"`
 	// +optional
 	// +kubebuilder:default:=kubernetes
 	// +kubebuilder:validation:Enum=kubernetes
@@ -56,7 +62,14 @@ type ClusterSpec struct {
 	// +kubebuilder:validation:Enum=host;worker
 	Usage ClusterUsage `json:"usage" yaml:"usage"`
 	// +optional
-	HostCluster string `json:"hostcluster" yaml:"hostcluster"`
+	HostCluster string `json:"hostCluster,omitempty" yaml:"hostCluster"`
+	// +optional
+	// PrimaryDomain is used to build the domain of components within the cluster
+	PrimaryDomain string `json:"primaryDomain,omitempty" yaml:"primaryDomain"`
+	// +optional
+	// +kubebuilder:validation:Enum="";pipeline;deployment
+	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
+	WorkerType ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
 }
 
 // ClusterStatus defines the observed state of Cluster
@@ -68,6 +81,24 @@ type ClusterStatus struct {
 	MgtAuthStatus *MgtClusterAuthStatus `json:"mgtAuthStatus,omitempty" yaml:"mgtAuthStatus"`
 	// +optional
 	Sync2ArgoStatus *SyncCluster2ArgoStatus `json:"sync2ArgoStatus,omitempty" yaml:"sync2ArgoStatus"`
+	// +optional
+	// +nullable
+	EntryPoints map[string]ClusterEntryPoint `json:"entryPoints,omitempty" yaml:"entryPoints"`
+}
+
+type ServiceType string
+
+const (
+	ServiceTypeNodePort     ServiceType = "NodePort"
+	ServiceTypeLoadBalancer ServiceType = "LoadBalancer"
+	ServiceTypeExternalName ServiceType = "ExternalName"
+)
+
+type ClusterEntryPoint struct {
+	// The port of entry point service
+	HTTPPort  int32       `json:"httpPort,omitempty" yaml:"httpPort"`
+	HTTPSPort int32       `json:"httpsPort,omitempty" yaml:"httpsPort"`
+	Type      ServiceType `json:"type,omitempty" yaml:"type"`
 }
 
 type MgtClusterAuthStatus struct {

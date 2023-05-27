@@ -21,9 +21,8 @@ const (
 )
 
 type DeployApp struct {
-	Type             DeployAppType            `yaml:"type"`
-	DefaultDeployApp map[string]DeployAppType `yaml:"defaultDeployApp"`
-	ArgoCD           ArgoCD                   `yaml:"argocd"`
+	DefaultApp map[string]DeployAppType `yaml:"defaultApp"`
+	ArgoCD     ArgoCD                   `yaml:"argocd"`
 }
 
 // Kustomize stores configurations of kustomize

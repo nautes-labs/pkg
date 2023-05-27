@@ -90,6 +90,9 @@ resources:
   kind: ProjectPipelineRuntime
   path: github.com/nautes-labs/pkg/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -115,6 +118,14 @@ resources:
   domain: resource.nautes.io
   group: nautes
   kind: ArtifactRepoProvider
+  path: github.com/nautes-labs/pkg/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: CodeRepoBinding
   path: github.com/nautes-labs/pkg/api/v1alpha1
   version: v1alpha1
 version: "3"

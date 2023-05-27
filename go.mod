@@ -6,7 +6,6 @@ require (
 	github.com/go-kratos/kratos/v2 v2.5.0
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
-	github.com/golang/mock v1.5.0
 	github.com/natefinch/lumberjack v0.0.0-20230119042236-215739b3bcdc
 	github.com/onsi/ginkgo/v2 v2.3.1
 	github.com/onsi/gomega v1.22.0

@@ -18,29 +18,36 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	logr "github.com/go-logr/logr"
 	. "github.com/nautes-labs/pkg/api/v1alpha1"
-	convert "github.com/nautes-labs/pkg/pkg/kubeconvert"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var nautesNamespaceName = "nautes"
+
+var mgr manager.Manager
+var ctx context.Context
+var cancel context.CancelFunc
+var logger logr.Logger
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -76,23 +83,51 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	configPath := fmt.Sprintf("/tmp/kubeconfig-%s", randNum())
-	f, err := os.Create(configPath)
-	Expect(err).Should(BeNil())
-	defer f.Close()
+	ctx, cancel = context.WithCancel(context.TODO())
+	logger = logf.FromContext(ctx)
+	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+		Port:   9443,
+	})
+	Expect(err).NotTo(HaveOccurred())
+	mgr.GetFieldIndexer().IndexField(context.Background(), &CodeRepo{}, SelectFieldCodeRepoName, func(obj client.Object) []string {
+		logger.V(1).Info("add code repo index", "RepoName", obj.GetName(), "index", obj.GetName())
+		return []string{obj.GetName()}
+	})
+	mgr.GetFieldIndexer().IndexField(context.Background(), &CodeRepoBinding{}, SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {
+		binding := obj.(*CodeRepoBinding)
+		logger.V(1).Info("add code repo binding index", "BindingName", binding.Name, "index", fmt.Sprintf("%s/%s", binding.Spec.Product, binding.Spec.CodeRepo))
+		if binding.Spec.Product == "" || binding.Spec.CodeRepo == "" {
+			return nil
+		}
 
-	kubeconfigCR := convert.ConvertRestConfigToApiConfig(*cfg)
-	kubeconfig, err := clientcmd.Write(kubeconfigCR)
-	Expect(err).Should(BeNil())
+		return []string{fmt.Sprintf("%s/%s", binding.Spec.Product, binding.Spec.CodeRepo)}
+	})
 
-	_, err = f.Write(kubeconfig)
-	Expect(err).Should(BeNil())
+	KubernetesClient = mgr.GetClient()
+	go func() {
+		defer GinkgoRecover()
+		err = mgr.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
 
-	err = os.Setenv("KUBECONFIG", configPath)
-	Expect(err).Should(BeNil())
+	k8sClientIsInit := false
+	for i := 0; i < 10; i++ {
+		podList := &corev1.PodList{}
+		err := KubernetesClient.List(ctx, podList)
+		if err == nil {
+			k8sClientIsInit = true
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	Expect(k8sClientIsInit).Should(BeTrue())
+
+	k8sClient = mgr.GetClient()
 })
 
 var _ = AfterSuite(func() {
+	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
@@ -100,4 +135,16 @@ var _ = AfterSuite(func() {
 
 func randNum() string {
 	return fmt.Sprintf("%04d", rand.Intn(9999))
+}
+
+func waitForDelete(obj client.Object) error {
+	for i := 0; i < 10; i++ {
+		err := k8sClient.Delete(context.Background(), obj)
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("wait for delete %s timeout", obj.GetName())
 }

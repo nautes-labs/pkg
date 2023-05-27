@@ -12,6 +12,8 @@ spec:
     kind: DeploymentRuntime
     listKind: DeploymentRuntimeList
     plural: deploymentruntimes
+    shortNames:
+    - dr
     singular: deploymentruntime
   scope: Namespaced
   versions:

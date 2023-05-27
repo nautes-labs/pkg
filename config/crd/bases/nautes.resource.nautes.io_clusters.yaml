@@ -48,7 +48,7 @@ spec:
           spec:
             description: ClusterSpec defines the desired state of Cluster
             properties:
-              apiserver:
+              apiServer:
                 pattern: https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)
                 type: string
               clusterKind:
@@ -56,12 +56,16 @@ spec:
                 enum:
                 - kubernetes
                 type: string
-              clustertype:
+              clusterType:
                 enum:
                 - physical
                 - virtual
                 type: string
-              hostcluster:
+              hostCluster:
+                type: string
+              primaryDomain:
+                description: PrimaryDomain is used to build the domain of components
+                  within the cluster
                 type: string
               usage:
                 description: the usage of cluster, for user use it directry or deploy
@@ -70,9 +74,17 @@ spec:
                 - host
                 - worker
                 type: string
+              workerType:
+                description: pipeline or deployment, when the cluster usage is 'worker',
+                  the WorkType is required.
+                enum:
+                - ""
+                - pipeline
+                - deployment
+                type: string
             required:
-            - apiserver
-            - clustertype
+            - apiServer
+            - clusterType
             - usage
             type: object
           status:
@@ -147,6 +159,21 @@ spec:
                   type: object
                 nullable: true
                 type: array
+              entryPoints:
+                additionalProperties:
+                  properties:
+                    httpPort:
+                      description: The port of entry point service
+                      format: int32
+                      type: integer
+                    httpsPort:
+                      format: int32
+                      type: integer
+                    type:
+                      type: string
+                  type: object
+                nullable: true
+                type: object
               mgtAuthStatus:
                 properties:
                   lastSuccessSpec:

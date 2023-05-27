@@ -11,3 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+package configs
+
+type PipelineType string
+
+const (
+	PipelineTypeTekton PipelineType = "tekton"
+)
+
+type Pipeline struct {
+	DefaultApp map[string]PipelineType `yaml:"defaultApp"`
+}

@@ -41,8 +41,13 @@ func (r *DeploymentRuntime) GetProduct() string {
 	return r.Spec.Product
 }
 
+func (r *DeploymentRuntime) GetDestination() string {
+	return r.Spec.Destination
+}
+
 // DeploymentRuntimeStatus defines the observed state of DeploymentRuntime
 type DeploymentRuntimeStatus struct {
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" yaml:"conditions"`
 	// +nullable
 	DeployHistory *DeployHistory `json:"deployHistory" yaml:"deployHistory"`
@@ -56,6 +61,7 @@ type DeployHistory struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=dr
 //+kubebuilder:printcolumn:name="Destination",type=string,JSONPath=".spec.destination"
 //+kubebuilder:printcolumn:name="CodeRepo",type=string,JSONPath=".spec.manifestSource.codeRepo"
 
