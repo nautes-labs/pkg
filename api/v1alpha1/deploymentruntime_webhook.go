@@ -112,7 +112,7 @@ func (r *DeploymentRuntime) Validate(ctx context.Context, validateClient Validat
 		} else if r.Spec.ManifestSource.CodeRepo == manifest.CodeRepo &&
 			r.Spec.ManifestSource.Path == manifest.Path &&
 			r.Spec.ManifestSource.TargetRevision == manifest.TargetRevision {
-			return nil, nil
+			return r.ValidateProjectRef(ctx, validateClient)
 		}
 	}
 
