@@ -15,7 +15,6 @@
 package v1alpha1
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
@@ -69,22 +68,6 @@ type DeployHistory struct {
 	Destination    string         `json:"destination"`
 	// The URL of the coderepo in the last successfully deployed runtime
 	Source string `json:"source"`
-}
-
-func GetDependentResourcesOfClusterFromDeploymentRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
-	runtimeList := &DeploymentRuntimeList{}
-
-	if err := k8sClient.List(ctx, runtimeList); err != nil {
-		return nil, err
-	}
-
-	dependencies := []string{}
-	for _, runtime := range runtimeList.Items {
-		if runtime.Status.Cluster == clusterName {
-			dependencies = append(dependencies, fmt.Sprintf("deploymentRuntime/%s/%s", runtime.Namespace, runtime.Name))
-		}
-	}
-	return dependencies, nil
 }
 
 //+kubebuilder:object:root=true

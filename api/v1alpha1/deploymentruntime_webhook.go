@@ -20,6 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -34,7 +35,6 @@ func (r *DeploymentRuntime) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 //+kubebuilder:webhook:path=/validate-nautes-resource-nautes-io-v1alpha1-deploymentruntime,mutating=false,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=create;update,versions=v1alpha1,name=vdeploymentruntime.kb.io,admissionReviewVersions=v1
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list
 
 var _ webhook.Validator = &DeploymentRuntime{}
 
@@ -89,6 +89,8 @@ func (r *DeploymentRuntime) ValidateDelete() error {
 
 	return nil
 }
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list
 
 // Validate used to check deployment runtime is legal
 func (r *DeploymentRuntime) Validate(ctx context.Context, validateClient ValidateClient) ([]IllegalProjectRef, error) {
@@ -149,4 +151,26 @@ func (r *DeploymentRuntime) ValidateProjectRef(ctx context.Context, validateClie
 		}
 	}
 	return illegalProjectRefs, nil
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list
+
+func init() {
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromDeploymentRuntime)
+}
+
+func GetDependentResourcesOfClusterFromDeploymentRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+	runtimeList := &DeploymentRuntimeList{}
+
+	if err := k8sClient.List(ctx, runtimeList); err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, runtime := range runtimeList.Items {
+		if runtime.Status.Cluster == clusterName {
+			dependencies = append(dependencies, fmt.Sprintf("deploymentRuntime/%s/%s", runtime.Namespace, runtime.Name))
+		}
+	}
+	return dependencies, nil
 }

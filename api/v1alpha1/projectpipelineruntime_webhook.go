@@ -20,6 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -34,8 +35,6 @@ func (r *ProjectPipelineRuntime) SetupWebhookWithManager(mgr ctrl.Manager) error
 }
 
 //+kubebuilder:webhook:path=/validate-nautes-resource-nautes-io-v1alpha1-projectpipelineruntime,mutating=false,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=projectpipelineruntimes,verbs=create;update,versions=v1alpha1,name=vprojectpipelineruntime.kb.io,admissionReviewVersions=v1
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=coderepobindings,verbs=get;list;watch
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=coderepoes,verbs=get;list;watch
 
 var _ webhook.Validator = &ProjectPipelineRuntime{}
 
@@ -169,4 +168,26 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 	}
 
 	return nil
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=projectpipelineruntimes,verbs=get;list
+
+func init() {
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromPipelineRuntime)
+}
+
+func GetDependentResourcesOfClusterFromPipelineRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+	runtimeList := &ProjectPipelineRuntimeList{}
+
+	if err := k8sClient.List(ctx, runtimeList); err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, runtime := range runtimeList.Items {
+		if runtime.Status.Cluster == clusterName {
+			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s/%s", runtime.Namespace, runtime.Name))
+		}
+	}
+	return dependencies, nil
 }

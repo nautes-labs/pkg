@@ -35,7 +35,6 @@ func (r *ProductProvider) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 //+kubebuilder:webhook:path=/validate-nautes-resource-nautes-io-v1alpha1-productprovider,mutating=false,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=productproviders,verbs=delete,versions=v1alpha1,name=vproductprovider.kb.io,admissionReviewVersions=v1
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=products,verbs=get;list
 
 var _ webhook.Validator = &ProductProvider{}
 
@@ -64,6 +63,8 @@ func (r *ProductProvider) ValidateDelete() error {
 
 	return r.IsDeletable(context.TODO(), k8sClient)
 }
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=products,verbs=get;list
 
 func (r *ProductProvider) IsDeletable(ctx context.Context, k8sClient client.Client) error {
 	products := &ProductList{}

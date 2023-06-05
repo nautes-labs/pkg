@@ -47,9 +47,7 @@ func (r *Cluster) Default() {
 }
 
 //+kubebuilder:webhook:path=/validate-nautes-resource-nautes-io-v1alpha1-cluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=clusters,verbs=create;update;delete,versions=v1alpha1,name=vcluster.kb.io,admissionReviewVersions=v1
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list;watch
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list;watch
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=environments,verbs=get;list;watch
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list
 
 var _ webhook.Validator = &Cluster{}
 
@@ -169,4 +167,23 @@ func (r *Cluster) ClusterGetDependencies(ctx context.Context, k8sClient client.C
 	}
 
 	return subResources, nil
+}
+
+func init() {
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromCluster)
+}
+
+func GetDependentResourcesOfClusterFromCluster(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+	clusterList := &ClusterList{}
+	if err := k8sClient.List(ctx, clusterList); err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, cluster := range clusterList.Items {
+		if cluster.Spec.HostCluster == clusterName {
+			dependencies = append(dependencies, fmt.Sprintf("cluster/%s", cluster.Name))
+		}
+	}
+	return dependencies, nil
 }

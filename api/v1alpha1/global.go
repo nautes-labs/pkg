@@ -40,13 +40,6 @@ var (
 	KubernetesClient client.Client
 )
 
-func init() {
-	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions,
-		GetDependentResourcesOfClusterFromCluster,
-		GetDependentResourcesOfClusterFromDeploymentRuntime,
-		GetDependentResourcesOfClusterFromPipelineRuntime)
-}
-
 func GetConditions(conditions []metav1.Condition, conditionTypes map[string]bool) []metav1.Condition {
 	result := make([]metav1.Condition, 0)
 	for i := range conditions {
@@ -121,6 +114,8 @@ type ValidateClientK8s struct {
 	client.Client
 }
 
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=coderepoes,verbs=get;list
+
 func (c *ValidateClientK8s) GetCodeRepo(ctx context.Context, repoName string) (*CodeRepo, error) {
 	codeRepoList := &CodeRepoList{}
 	listOpt := &client.ListOptions{
@@ -136,6 +131,9 @@ func (c *ValidateClientK8s) GetCodeRepo(ctx context.Context, repoName string) (*
 	}
 	return &codeRepoList.Items[0], nil
 }
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=coderepobindings,verbs=get;list
+
 func (c *ValidateClientK8s) ListCodeRepoBinding(ctx context.Context, productName, repoName string) (*CodeRepoBindingList, error) {
 	logger := logf.FromContext(ctx)
 
@@ -152,6 +150,8 @@ func (c *ValidateClientK8s) ListCodeRepoBinding(ctx context.Context, productName
 	return codeRepoBindingList, nil
 }
 
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list
+
 func (c *ValidateClientK8s) ListDeploymentRuntime(ctx context.Context, productName string) (*DeploymentRuntimeList, error) {
 	runtimes := &DeploymentRuntimeList{}
 	listOpts := []client.ListOption{
@@ -162,6 +162,8 @@ func (c *ValidateClientK8s) ListDeploymentRuntime(ctx context.Context, productNa
 	}
 	return runtimes, nil
 }
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=projectpipelineruntimes,verbs=get;list
 
 func (c *ValidateClientK8s) ListProjectPipelineRuntime(ctx context.Context, productName string) (*ProjectPipelineRuntimeList, error) {
 	runtimes := &ProjectPipelineRuntimeList{}

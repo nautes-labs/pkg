@@ -12,7 +12,6 @@ rules:
   verbs:
   - get
   - list
-  - watch
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
@@ -20,7 +19,6 @@ rules:
   verbs:
   - get
   - list
-  - watch
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
@@ -28,7 +26,6 @@ rules:
   verbs:
   - get
   - list
-  - watch
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
@@ -45,19 +42,17 @@ rules:
   verbs:
   - get
   - list
-  - watch
-- apiGroups:
-  - nautes.resource.nautes.io
-  resources:
-  - environments
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
   - products
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - projectpipelineruntimes
   verbs:
   - get
   - list
