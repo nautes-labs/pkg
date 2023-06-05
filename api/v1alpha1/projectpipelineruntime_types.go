@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,6 +140,22 @@ type ProjectPipelineRuntimeStatus struct {
 type IllegalEventSource struct {
 	EventSource EventSource `json:"eventSource"`
 	Reason      string      `json:"reason"`
+}
+
+func GetDependentResourcesOfClusterFromPipelineRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+	runtimeList := &ProjectPipelineRuntimeList{}
+
+	if err := k8sClient.List(ctx, runtimeList); err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, runtime := range runtimeList.Items {
+		if runtime.Status.Cluster == clusterName {
+			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s/%s", runtime.Namespace, runtime.Name))
+		}
+	}
+	return dependencies, nil
 }
 
 //+kubebuilder:object:root=true

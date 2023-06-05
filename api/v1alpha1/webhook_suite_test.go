@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -147,4 +148,43 @@ func waitForDelete(obj client.Object) error {
 		time.Sleep(time.Second)
 	}
 	return fmt.Errorf("wait for delete %s timeout", obj.GetName())
+}
+
+func waitForIndexFieldUpdateCodeRepo(targetNum int, repoName string) error {
+	obj := &CodeRepoList{}
+	opt := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoName, repoName),
+	}
+	for i := 0; i < 3; i++ {
+		err := k8sClient.List(ctx, obj, opt)
+		if err != nil {
+			return err
+		}
+
+		if targetNum == len(obj.Items) {
+			return nil
+		}
+		time.Sleep(time.Millisecond * 500)
+	}
+	return fmt.Errorf("wait for index update timeout")
+}
+
+func waitForIndexFieldUpdateBinding(targetNum int, productName, repoName string) error {
+	obj := &CodeRepoBindingList{}
+	listVar := fmt.Sprintf("%s/%s", productName, repoName)
+	opt := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoBindingProductAndRepo, listVar),
+	}
+	for i := 0; i < 3; i++ {
+		err := k8sClient.List(ctx, obj, opt)
+		if err != nil {
+			return err
+		}
+
+		if targetNum == len(obj.Items) {
+			return nil
+		}
+		time.Sleep(time.Millisecond * 500)
+	}
+	return fmt.Errorf("wait for index update timeout")
 }

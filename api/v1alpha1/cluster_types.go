@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -44,8 +45,8 @@ const (
 )
 
 const (
-	DEPLOYMENT_TYPE ClusterWorkType = "deployment"
-	PIPELINE_TYPE   ClusterWorkType = "pipeline"
+	ClusterWorkTypeDeploymentType ClusterWorkType = "deployment"
+	ClusterWorkTypePipelineType   ClusterWorkType = "pipeline"
 )
 
 // ClusterSpec defines the desired state of Cluster
@@ -179,6 +180,21 @@ func GetClusterFromString(name, namespace string, specStr string) (*Cluster, err
 		},
 		Spec: spec,
 	}, nil
+}
+
+func GetDependentResourcesOfClusterFromCluster(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+	clusterList := &ClusterList{}
+	if err := k8sClient.List(ctx, clusterList); err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, cluster := range clusterList.Items {
+		if cluster.Spec.HostCluster == clusterName {
+			dependencies = append(dependencies, fmt.Sprintf("cluster/%s", cluster.Name))
+		}
+	}
+	return dependencies, nil
 }
 
 //+kubebuilder:object:root=true

@@ -62,16 +62,16 @@ func (r *ProductProvider) ValidateDelete() error {
 		return err
 	}
 
-	return r.IsDeletable(k8sClient)
+	return r.IsDeletable(context.TODO(), k8sClient)
 }
 
-func (r *ProductProvider) IsDeletable(k8sClient client.Client) error {
+func (r *ProductProvider) IsDeletable(ctx context.Context, k8sClient client.Client) error {
 	products := &ProductList{}
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{LABEL_FROM_PRODUCT_PROVIDER: r.Name}),
 		client.InNamespace(r.Namespace),
 	}
-	err := k8sClient.List(context.Background(), products, listOpts...)
+	err := k8sClient.List(ctx, products, listOpts...)
 	if err != nil {
 		return fmt.Errorf("list product failed: %w", err)
 	}

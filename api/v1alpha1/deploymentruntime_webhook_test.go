@@ -28,7 +28,7 @@ import (
 )
 
 var _ = Describe("cluster webhook", func() {
-	var runtime *ProjectPipelineRuntime
+	var runtime *DeploymentRuntime
 	var env *Environment
 	var cluster *Cluster
 	var ctx context.Context
@@ -108,37 +108,26 @@ var _ = Describe("cluster webhook", func() {
 			},
 		}
 
-		runtime = &ProjectPipelineRuntime{
+		runtime = &DeploymentRuntime{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("runtime-%s", randNum()),
 				Namespace: ns.Name,
 			},
-			Spec: ProjectPipelineRuntimeSpec{
-				Project:        projectName,
-				PipelineSource: source.Name,
-				Pipelines:      []Pipeline{},
-				Destination:    env.Name,
-				EventSources: []EventSource{
-					{
-						Name: fmt.Sprintf("evName-%s", randNum()),
-						Gitlab: &Gitlab{
-							RepoName: eventRepo.Name,
-							Revision: "main",
-							Events:   []string{},
-						},
-						Calendar: &Calendar{},
-					},
+			Spec: DeploymentRuntimeSpec{
+				Product:     productName,
+				ProjectsRef: []string{projectName},
+				ManifestSource: ManifestSource{
+					CodeRepo:       source.Name,
+					TargetRevision: "HEAD",
+					Path:           "/",
 				},
-				Isolation:        "",
-				PipelineTriggers: []PipelineTrigger{},
+				Destination: env.Name,
 			},
 		}
-
 		logger.V(1).Info("=====Case start=====")
 		logger.V(1).Info("product", "Name", productName)
 		logger.V(1).Info("project", "Name", projectName)
 		logger.V(1).Info("souce repo", "Name", source.Name, "Project", source.Spec.Project)
-		logger.V(1).Info("runtime", "Name", runtime.Name, "Project", runtime.Spec.Project)
 	})
 
 	AfterEach(func() {
@@ -164,83 +153,59 @@ var _ = Describe("cluster webhook", func() {
 		err = k8sClient.Delete(ctx, cluster)
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
 	})
-
-	It("if source and runtime in the same project, create will success", func() {
+	It("if project has permission to use coderepo, create will successed", func() {
 		err := k8sClient.Create(ctx, source)
 		Expect(err).Should(BeNil())
 		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
 		Expect(err).Should(BeNil())
 
-		runtime.Spec.EventSources = nil
 		err = runtime.ValidateCreate()
 		Expect(err).Should(BeNil())
 	})
 
-	It("if source and runtime not in the same project, it need coderepo binding", func() {
-		source.Spec.Project = fmt.Sprintf("%s-2", source.Spec.Project)
+	It("if project has no permission to use coderepo , create will failed", func() {
 		err := k8sClient.Create(ctx, source)
 		Expect(err).Should(BeNil())
 		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
 		Expect(err).Should(BeNil())
 
-		runtime.Spec.EventSources = nil
+		runtime.Spec.ProjectsRef = []string{"fake"}
+
 		err = runtime.ValidateCreate()
 		Expect(err).ShouldNot(BeNil())
-
-		codeRepoBinding.Spec.CodeRepo = source.Name
-		codeRepoBinding.Spec.Projects = []string{runtime.Spec.Project}
-		err = k8sClient.Create(ctx, codeRepoBinding)
-		Expect(err).Should(BeNil())
-		err = waitForIndexFieldUpdateBinding(1, productName, source.Name)
-		Expect(err).Should(BeNil())
-
-		err = runtime.ValidateCreate()
-		Expect(err).Should(BeNil())
 	})
 
-	It("if product is same, and coderepobinding's projects is nil, runtime permission check should pass", func() {
-		source.Spec.Project = fmt.Sprintf("%s-2", source.Spec.Project)
+	It("when an identical runtime has already been deployed, create will failed", func() {
 		err := k8sClient.Create(ctx, source)
 		Expect(err).Should(BeNil())
 		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
 		Expect(err).Should(BeNil())
 
-		codeRepoBinding.Spec.CodeRepo = source.Name
-		codeRepoBinding.Spec.Projects = nil
-		err = k8sClient.Create(ctx, codeRepoBinding)
-		Expect(err).Should(BeNil())
-		err = waitForIndexFieldUpdateBinding(1, productName, source.Name)
+		runtime2 := runtime.DeepCopyObject().(*DeploymentRuntime)
+		runtime2.Name = fmt.Sprintf("%s-2", runtime.Name)
+		err = k8sClient.Create(ctx, runtime)
 		Expect(err).Should(BeNil())
 
-		err = runtime.ValidateCreate()
-		Expect(err).Should(BeNil())
-	})
-
-	It("if event source repo and runtime not in the same project, it need coderepo binding", func() {
-		err := k8sClient.Create(ctx, source)
-		Expect(err).Should(BeNil())
-		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
-		Expect(err).Should(BeNil())
-
-		eventRepo.Name = fmt.Sprintf("%s-2", eventRepo.Name)
-		eventRepo.Spec.Project = fmt.Sprintf("%s-2", eventRepo.Spec.Project)
-		err = k8sClient.Create(ctx, eventRepo)
-		Expect(err).Should(BeNil())
-		err = waitForIndexFieldUpdateCodeRepo(1, eventRepo.Name)
-		Expect(err).Should(BeNil())
-
-		runtime.Spec.EventSources[0].Gitlab.RepoName = eventRepo.Name
-		err = runtime.ValidateCreate()
+		err = runtime2.ValidateCreate()
 		Expect(err).ShouldNot(BeNil())
+	})
 
-		codeRepoBinding.Spec.CodeRepo = eventRepo.Name
-		codeRepoBinding.Spec.Projects = []string{runtime.Spec.Project}
-		err = k8sClient.Create(ctx, codeRepoBinding)
+	It("when an identical runtime has already been deployed, the deployed runtime should pass validate", func() {
+		err := k8sClient.Create(ctx, source)
 		Expect(err).Should(BeNil())
-		err = waitForIndexFieldUpdateBinding(1, productName, eventRepo.Name)
+		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
 		Expect(err).Should(BeNil())
 
-		err = runtime.ValidateCreate()
+		runtime2 := runtime.DeepCopyObject().(*DeploymentRuntime)
+		runtime2.Name = fmt.Sprintf("%s-2", runtime.Name)
+		runtime2.Status.DeployHistory = &DeployHistory{
+			ManifestSource: runtime2.Spec.ManifestSource,
+			Destination:    runtime2.Spec.Destination,
+		}
+		err = k8sClient.Create(ctx, runtime)
+		Expect(err).Should(BeNil())
+
+		err = runtime2.ValidateCreate()
 		Expect(err).Should(BeNil())
 	})
 })

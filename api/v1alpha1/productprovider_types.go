@@ -22,10 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	LABEL_FROM_PRODUCT_PROVIDER = "resource.nautes.io/from"
-)
-
 // ProductProviderSpec defines the desired state of ProductProvider
 type ProductProviderSpec struct {
 	Type string `json:"type" yaml:"type"`

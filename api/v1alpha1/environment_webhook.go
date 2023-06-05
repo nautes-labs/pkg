@@ -15,12 +15,11 @@
 package v1alpha1
 
 import (
-	"context"
 	"fmt"
 
+	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -59,22 +58,29 @@ func (r *Environment) ValidateDelete() error {
 	if err != nil {
 		return err
 	}
-	return r.IsDeletable(k8sClient)
+	return r.IsDeletable(context.TODO(), &ValidateClientK8s{Client: k8sClient})
 }
 
-func (r *Environment) IsDeletable(k8sClient client.Client) error {
-	deploymentRuntimes := &DeploymentRuntimeList{}
-	listOpts := client.ListOptions{
-		Namespace: r.Namespace,
-	}
-	err := k8sClient.List(context.Background(), deploymentRuntimes, &listOpts)
+func (r *Environment) IsDeletable(ctx context.Context, validateClient ValidateClient) error {
+	deploymentRuntimes, err := validateClient.ListDeploymentRuntime(ctx, r.Namespace)
 	if err != nil {
 		return err
 	}
 
 	for _, deploymentRuntime := range deploymentRuntimes.Items {
 		if deploymentRuntime.Spec.Destination == r.Name {
-			return fmt.Errorf("environment is referenced by runtime")
+			return fmt.Errorf("environment is referenced by deployment runtime %s", deploymentRuntime.Name)
+		}
+	}
+
+	pipelineRuntimes, err := validateClient.ListProjectPipelineRuntime(ctx, r.Namespace)
+	if err != nil {
+		return err
+	}
+
+	for _, pipelineRuntime := range pipelineRuntimes.Items {
+		if pipelineRuntime.Spec.Destination == r.Name {
+			return fmt.Errorf("environment is referenced by project pipeline runtime %s", pipelineRuntime.Name)
 		}
 	}
 

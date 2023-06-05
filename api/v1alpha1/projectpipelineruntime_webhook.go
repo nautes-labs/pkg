@@ -18,10 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -49,7 +47,7 @@ func (r *ProjectPipelineRuntime) ValidateCreate() error {
 		return err
 	}
 
-	illegalEventSources, err := r.Validate(&PipelineRunetimeValidateClientK8s{Client: client})
+	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientK8s{Client: client})
 	if err != nil {
 		return err
 	}
@@ -73,7 +71,7 @@ func (r *ProjectPipelineRuntime) ValidateUpdate(old runtime.Object) error {
 		return err
 	}
 
-	illegalEventSources, err := r.Validate(&PipelineRunetimeValidateClientK8s{Client: client})
+	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientK8s{Client: client})
 	if err != nil {
 		return err
 	}
@@ -105,15 +103,15 @@ const (
 // Validate use to verify pipeline runtime is legal, it will check the following things
 // - runtime has permission to use repo in eventsources
 // if runtime has no permission to use code repo, it return them in the first var.
-func (r *ProjectPipelineRuntime) Validate(validateClient PipelineRuntimeValidateClient) ([]IllegalEventSource, error) {
+func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient ValidateClient) ([]IllegalEventSource, error) {
 	productName := r.Namespace
 	projectName := r.Spec.Project
 
-	if err := projectPipelineRuntimeStaticCheck(*r); err != nil {
+	if err := r.StaticCheck(); err != nil {
 		return nil, err
 	}
 
-	if err := checkPermissionEventSourceCodeRepo(validateClient, productName, projectName, r.Spec.PipelineSource); err != nil {
+	if err := hasCodeRepoPermission(ctx, validateClient, productName, projectName, r.Spec.PipelineSource); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +120,7 @@ func (r *ProjectPipelineRuntime) Validate(validateClient PipelineRuntimeValidate
 
 		if eventSource.Gitlab != nil &&
 			eventSource.Gitlab.RepoName != "" {
-			err := checkPermissionEventSourceCodeRepo(validateClient, productName, projectName, eventSource.Gitlab.RepoName)
+			err := hasCodeRepoPermission(ctx, validateClient, productName, projectName, eventSource.Gitlab.RepoName)
 			if err != nil {
 				illegalEvnentSources = append(illegalEvnentSources, IllegalEventSource{
 					EventSource: eventSource,
@@ -136,9 +134,9 @@ func (r *ProjectPipelineRuntime) Validate(validateClient PipelineRuntimeValidate
 	return illegalEvnentSources, nil
 }
 
-func projectPipelineRuntimeStaticCheck(runtime ProjectPipelineRuntime) error {
+func (r *ProjectPipelineRuntime) StaticCheck() error {
 	eventSourceNames := make(map[string]bool, 0)
-	for _, es := range runtime.Spec.EventSources {
+	for _, es := range r.Spec.EventSources {
 		if eventSourceNames[es.Name] {
 			return fmt.Errorf("event source %s is duplicate", es.Name)
 		}
@@ -146,7 +144,7 @@ func projectPipelineRuntimeStaticCheck(runtime ProjectPipelineRuntime) error {
 	}
 
 	pipelineNames := make(map[string]bool, 0)
-	for _, pipeline := range runtime.Spec.Pipelines {
+	for _, pipeline := range r.Spec.Pipelines {
 		if pipelineNames[pipeline.Name] {
 			return fmt.Errorf("pipeline %s is duplicate", pipeline.Name)
 		}
@@ -154,7 +152,7 @@ func projectPipelineRuntimeStaticCheck(runtime ProjectPipelineRuntime) error {
 	}
 
 	triggerTags := make(map[string]bool, 0)
-	for _, trigger := range runtime.Spec.PipelineTriggers {
+	for _, trigger := range r.Spec.PipelineTriggers {
 		if !eventSourceNames[trigger.EventSource] {
 			return fmt.Errorf("found non-existent event source %s in trigger", trigger.EventSource)
 		}
@@ -171,84 +169,4 @@ func projectPipelineRuntimeStaticCheck(runtime ProjectPipelineRuntime) error {
 	}
 
 	return nil
-}
-
-func checkPermissionEventSourceCodeRepo(validateClient PipelineRuntimeValidateClient, productName, projectName, repoName string) error {
-	codeRepoList, err := validateClient.GetCodeRepoList(repoName)
-	if err != nil {
-		return err
-	}
-	codeRepo := codeRepoList.Items[0]
-	if codeRepo.DeletionTimestamp.IsZero() &&
-		codeRepo.Spec.Product == productName &&
-		codeRepo.Spec.Project == projectName {
-		return nil
-	}
-
-	codeRepoBindingList, err := validateClient.GetCodeRepoBindingList(productName, repoName)
-	if err != nil {
-		return err
-	}
-	for _, binding := range codeRepoBindingList.Items {
-		if !binding.DeletionTimestamp.IsZero() {
-			continue
-		}
-
-		// if projects is nil or empty, means the scope of permission is at the product level
-		if binding.Spec.Projects == nil || len(binding.Spec.Projects) == 0 {
-			return nil
-		}
-
-		for _, project := range binding.Spec.Projects {
-			if project == projectName {
-				return nil
-			}
-		}
-	}
-
-	return fmt.Errorf("runtime is not permitted to use code repo %s", repoName)
-}
-
-//+kubebuilder:object:generate=false
-type PipelineRuntimeValidateClient interface {
-	GetCodeRepoList(repoName string) (*CodeRepoList, error)
-	GetCodeRepoBindingList(productName, repoName string) (*CodeRepoBindingList, error)
-}
-
-//+kubebuilder:object:generate=false
-type PipelineRunetimeValidateClientK8s struct {
-	client.Client
-}
-
-func (c *PipelineRunetimeValidateClientK8s) GetCodeRepoList(repoName string) (*CodeRepoList, error) {
-	ctx := context.Background()
-	codeRepoList := &CodeRepoList{}
-	listOpt := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoName, repoName),
-	}
-	if err := c.List(ctx, codeRepoList, listOpt); err != nil {
-		projectpipelineruntimelog.V(1).Info("grep code repo", "MatchNum", len(codeRepoList.Items))
-		return nil, err
-	}
-
-	if len(codeRepoList.Items) != 1 {
-		return nil, fmt.Errorf("code repo %s is not unique", repoName)
-	}
-	return codeRepoList, nil
-}
-func (c *PipelineRunetimeValidateClientK8s) GetCodeRepoBindingList(productName, repoName string) (*CodeRepoBindingList, error) {
-	ctx := context.Background()
-	logger := logf.FromContext(ctx)
-
-	codeRepoBindingList := &CodeRepoBindingList{}
-	listVar := fmt.Sprintf("%s/%s", productName, repoName)
-	listOpt := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoBindingProductAndRepo, listVar),
-	}
-	if err := c.List(ctx, codeRepoBindingList, listOpt); err != nil {
-		return nil, err
-	}
-
-	logger.V(1).Info("grep code repo binding", "ListVar", listVar, "MatchNum", len(codeRepoBindingList.Items))
-	return codeRepoBindingList, nil
 }

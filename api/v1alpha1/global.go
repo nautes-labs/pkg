@@ -15,17 +15,37 @@
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	LABEL_FROM_PRODUCT          = "resource.nautes.io/reference"
+	LABEL_BELONG_TO_PRODUCT     = "resource.nautes.io/belongsto"
+	LABEL_FROM_PRODUCT_PROVIDER = "resource.nautes.io/from"
+)
+
+const (
+	EnvUseRealName = "USEREALNAME"
 )
 
 var (
 	// KubernetesClient create from webhook main.go, it use to validate resource is legal
 	KubernetesClient client.Client
 )
+
+func init() {
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions,
+		GetDependentResourcesOfClusterFromCluster,
+		GetDependentResourcesOfClusterFromDeploymentRuntime,
+		GetDependentResourcesOfClusterFromPipelineRuntime)
+}
 
 func GetConditions(conditions []metav1.Condition, conditionTypes map[string]bool) []metav1.Condition {
 	result := make([]metav1.Condition, 0)
@@ -86,4 +106,105 @@ func getClient() (client.Client, error) {
 		return nil, fmt.Errorf("kubernetes client is not initializated")
 	}
 	return KubernetesClient, nil
+}
+
+//+kubebuilder:object:generate=false
+type ValidateClient interface {
+	GetCodeRepo(ctx context.Context, repoName string) (*CodeRepo, error)
+	ListCodeRepoBinding(ctx context.Context, productName, repoName string) (*CodeRepoBindingList, error)
+	ListDeploymentRuntime(ctx context.Context, productName string) (*DeploymentRuntimeList, error)
+	ListProjectPipelineRuntime(ctx context.Context, productName string) (*ProjectPipelineRuntimeList, error)
+}
+
+//+kubebuilder:object:generate=false
+type ValidateClientK8s struct {
+	client.Client
+}
+
+func (c *ValidateClientK8s) GetCodeRepo(ctx context.Context, repoName string) (*CodeRepo, error) {
+	codeRepoList := &CodeRepoList{}
+	listOpt := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoName, repoName),
+	}
+	if err := c.List(ctx, codeRepoList, listOpt); err != nil {
+		projectpipelineruntimelog.V(1).Info("grep code repo", "MatchNum", len(codeRepoList.Items))
+		return nil, err
+	}
+
+	if len(codeRepoList.Items) != 1 {
+		return nil, fmt.Errorf("code repo %s is not unique", repoName)
+	}
+	return &codeRepoList.Items[0], nil
+}
+func (c *ValidateClientK8s) ListCodeRepoBinding(ctx context.Context, productName, repoName string) (*CodeRepoBindingList, error) {
+	logger := logf.FromContext(ctx)
+
+	codeRepoBindingList := &CodeRepoBindingList{}
+	listVar := fmt.Sprintf("%s/%s", productName, repoName)
+	listOpt := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoBindingProductAndRepo, listVar),
+	}
+	if err := c.List(ctx, codeRepoBindingList, listOpt); err != nil {
+		return nil, err
+	}
+
+	logger.V(1).Info("grep code repo binding", "ListVar", listVar, "MatchNum", len(codeRepoBindingList.Items))
+	return codeRepoBindingList, nil
+}
+
+func (c *ValidateClientK8s) ListDeploymentRuntime(ctx context.Context, productName string) (*DeploymentRuntimeList, error) {
+	runtimes := &DeploymentRuntimeList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(productName),
+	}
+	if err := c.List(context.Background(), runtimes, listOpts...); err != nil {
+		return nil, err
+	}
+	return runtimes, nil
+}
+
+func (c *ValidateClientK8s) ListProjectPipelineRuntime(ctx context.Context, productName string) (*ProjectPipelineRuntimeList, error) {
+	runtimes := &ProjectPipelineRuntimeList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(productName),
+	}
+	if err := c.List(context.Background(), runtimes, listOpts...); err != nil {
+		return nil, err
+	}
+	return runtimes, nil
+}
+
+func hasCodeRepoPermission(ctx context.Context, validateClient ValidateClient, productName, projectName, repoName string) error {
+	codeRepo, err := validateClient.GetCodeRepo(ctx, repoName)
+	if err != nil {
+		return err
+	}
+	if codeRepo.DeletionTimestamp.IsZero() &&
+		codeRepo.Spec.Product == productName &&
+		codeRepo.Spec.Project == projectName {
+		return nil
+	}
+
+	codeRepoBindingList, err := validateClient.ListCodeRepoBinding(ctx, productName, repoName)
+	if err != nil {
+		return err
+	}
+	for _, binding := range codeRepoBindingList.Items {
+		if !binding.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		// if projects is nil or empty, means the scope of permission is at the product level
+		if binding.Spec.Projects == nil || len(binding.Spec.Projects) == 0 {
+			return nil
+		}
+
+		for _, project := range binding.Spec.Projects {
+			if project == projectName {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("not permitted to use code repo %s", repoName)
 }
