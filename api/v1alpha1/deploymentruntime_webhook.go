@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -67,6 +68,10 @@ func (r *DeploymentRuntime) ValidateUpdate(old runtime.Object) error {
 	k8sClient, err := getClient()
 	if err != nil {
 		return err
+	}
+
+	if reflect.DeepEqual(r.Spec, old.(*DeploymentRuntime).Spec) {
+		return nil
 	}
 
 	IllegalProjectRefs, err := r.Validate(context.Background(), &ValidateClientK8s{Client: k8sClient})

@@ -208,4 +208,14 @@ var _ = Describe("cluster webhook", func() {
 		err = runtime2.ValidateCreate()
 		Expect(err).Should(BeNil())
 	})
+
+	It("when an identical runtime has already been deployed, object meta change should be ignore ", func() {
+		runtime.Spec.ProjectsRef = []string{"fake"}
+
+		runtime2 := runtime.DeepCopyObject().(*DeploymentRuntime)
+		runtime2.Finalizers = []string{"one two"}
+
+		err := runtime.ValidateUpdate(runtime2)
+		Expect(err).Should(BeNil())
+	})
 })
