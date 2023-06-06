@@ -49,7 +49,7 @@ var _ = Describe("cluster webhook", func() {
 				ClusterKind: CLUSTER_KIND_KUBERNETES,
 				Usage:       CLUSTER_USAGE_WORKER,
 				HostCluster: "",
-				WorkerType:  ClusterWorkTypeDeploymentType,
+				WorkerType:  ClusterWorkTypeDeployment,
 			},
 		}
 

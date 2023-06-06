@@ -101,7 +101,7 @@ func (r *ProjectPipelineRuntime) ValidateDelete() error {
 
 const (
 	SelectFieldCodeRepoBindingProductAndRepo = "productAndRepo"
-	SelectFieldCodeRepoName                  = "metadata.name"
+	SelectFieldMetaDataName                  = "metadata.name"
 )
 
 // Validate use to verify pipeline runtime is legal, it will check the following things
@@ -113,6 +113,14 @@ func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient Va
 
 	if err := r.StaticCheck(); err != nil {
 		return nil, err
+	}
+
+	cluster, err := GetClusterByRuntime(ctx, validateClient, r)
+	if err != nil {
+		return nil, fmt.Errorf("get cluster by runtime failed: %w", err)
+	}
+	if cluster.Spec.Usage != CLUSTER_USAGE_WORKER || cluster.Spec.WorkerType != ClusterWorkTypePipeline {
+		return nil, fmt.Errorf("cluster is not a pipeline cluster")
 	}
 
 	if err := hasCodeRepoPermission(ctx, validateClient, productName, projectName, r.Spec.PipelineSource); err != nil {

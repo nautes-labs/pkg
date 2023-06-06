@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -91,8 +92,12 @@ var _ = BeforeSuite(func() {
 		Port:   9443,
 	})
 	Expect(err).NotTo(HaveOccurred())
-	mgr.GetFieldIndexer().IndexField(context.Background(), &CodeRepo{}, SelectFieldCodeRepoName, func(obj client.Object) []string {
+	mgr.GetFieldIndexer().IndexField(context.Background(), &CodeRepo{}, SelectFieldMetaDataName, func(obj client.Object) []string {
 		logger.V(1).Info("add code repo index", "RepoName", obj.GetName(), "index", obj.GetName())
+		return []string{obj.GetName()}
+	})
+	mgr.GetFieldIndexer().IndexField(context.Background(), &Cluster{}, SelectFieldMetaDataName, func(obj client.Object) []string {
+		logger.V(1).Info("add cluster index", "ClusterName", obj.GetName(), "index", obj.GetName())
 		return []string{obj.GetName()}
 	})
 	mgr.GetFieldIndexer().IndexField(context.Background(), &CodeRepoBinding{}, SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {
@@ -153,7 +158,7 @@ func waitForDelete(obj client.Object) error {
 func waitForIndexFieldUpdateCodeRepo(targetNum int, repoName string) error {
 	obj := &CodeRepoList{}
 	opt := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoName, repoName),
+		FieldSelector: fields.OneTermEqualSelector(SelectFieldMetaDataName, repoName),
 	}
 	for i := 0; i < 3; i++ {
 		err := k8sClient.List(ctx, obj, opt)
@@ -187,4 +192,28 @@ func waitForIndexFieldUpdateBinding(targetNum int, productName, repoName string)
 		time.Sleep(time.Millisecond * 500)
 	}
 	return fmt.Errorf("wait for index update timeout")
+}
+
+func waitForCacheUpdate(k8sClient client.Client, obj client.Object) error {
+	newObj := obj.DeepCopyObject().(client.Object)
+	for i := 0; i < 10; i++ {
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(newObj), newObj)
+		if err == nil {
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("wait cache update timeout %s", obj.GetName())
+}
+
+func waitForCacheUpdateCluster(k8sClient client.Client, cluster *Cluster) error {
+	newCluster := cluster.DeepCopyObject().(*Cluster)
+	for i := 0; i < 10; i++ {
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(newCluster), newCluster)
+		if err == nil && reflect.DeepEqual(cluster.Spec, newCluster.Spec) {
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("wait cache update timeout %s", cluster.Name)
 }

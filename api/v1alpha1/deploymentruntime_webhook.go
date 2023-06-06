@@ -121,6 +121,14 @@ func (r *DeploymentRuntime) Validate(ctx context.Context, validateClient Validat
 		}
 	}
 
+	cluster, err := GetClusterByRuntime(ctx, validateClient, r)
+	if err != nil {
+		return nil, fmt.Errorf("get cluster by runtime failed: %w", err)
+	}
+	if cluster.Spec.Usage != CLUSTER_USAGE_WORKER || cluster.Spec.WorkerType != ClusterWorkTypeDeployment {
+		return nil, fmt.Errorf("cluster is not a deployment cluster")
+	}
+
 	runtimeList, err := validateClient.ListDeploymentRuntime(ctx, r.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("get deployment runtime list failed: %w", err)

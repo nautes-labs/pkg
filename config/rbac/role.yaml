@@ -45,6 +45,13 @@ rules:
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
+  - environments
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
   - products
   verbs:
   - get

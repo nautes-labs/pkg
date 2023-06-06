@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var _ = Describe("cluster webhook", func() {
@@ -48,11 +49,13 @@ var _ = Describe("cluster webhook", func() {
 				Namespace: nautesNamespaceName,
 			},
 			Spec: ClusterSpec{
-				ApiServer:   "",
-				ClusterType: CLUSTER_TYPE_PHYSICAL,
-				ClusterKind: CLUSTER_KIND_KUBERNETES,
-				Usage:       CLUSTER_USAGE_WORKER,
-				HostCluster: "",
+				ApiServer:     "https://127.0.0.1:6443",
+				ClusterType:   CLUSTER_TYPE_PHYSICAL,
+				ClusterKind:   CLUSTER_KIND_KUBERNETES,
+				Usage:         CLUSTER_USAGE_WORKER,
+				HostCluster:   "",
+				PrimaryDomain: "",
+				WorkerType:    ClusterWorkTypePipeline,
 			},
 		}
 
@@ -133,6 +136,11 @@ var _ = Describe("cluster webhook", func() {
 				PipelineTriggers: []PipelineTrigger{},
 			},
 		}
+
+		err = k8sClient.Create(ctx, env)
+		Expect(err).Should(BeNil())
+		err = k8sClient.Create(ctx, cluster)
+		Expect(err).Should(BeNil())
 
 		logger.V(1).Info("=====Case start=====")
 		logger.V(1).Info("product", "Name", productName)
@@ -242,5 +250,41 @@ var _ = Describe("cluster webhook", func() {
 
 		err = runtime.ValidateCreate()
 		Expect(err).Should(BeNil())
+	})
+
+	It("when cluster is not a worker cluster, create will failed", func() {
+		err := k8sClient.Create(ctx, source)
+		Expect(err).Should(BeNil())
+		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
+		Expect(err).Should(BeNil())
+
+		_, err = controllerutil.CreateOrPatch(ctx, k8sClient, cluster, func() error {
+			cluster.Spec.Usage = CLUSTER_USAGE_HOST
+			return nil
+		})
+		Expect(err).Should(BeNil())
+		err = waitForCacheUpdateCluster(k8sClient, cluster)
+		Expect(err).Should(BeNil())
+
+		err = runtime.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("when cluster is not a deployment cluster, create will failed", func() {
+		err := k8sClient.Create(ctx, source)
+		Expect(err).Should(BeNil())
+		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
+		Expect(err).Should(BeNil())
+
+		_, err = controllerutil.CreateOrPatch(ctx, k8sClient, cluster, func() error {
+			cluster.Spec.WorkerType = ClusterWorkTypeDeployment
+			return nil
+		})
+		Expect(err).Should(BeNil())
+		err = waitForCacheUpdateCluster(k8sClient, cluster)
+		Expect(err).Should(BeNil())
+
+		err = runtime.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
 	})
 })
