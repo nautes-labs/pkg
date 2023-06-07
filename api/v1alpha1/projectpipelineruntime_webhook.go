@@ -187,6 +187,7 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 
 func init() {
 	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromPipelineRuntime)
+	GetEnvironmentSubResourceFunctions = append(GetEnvironmentSubResourceFunctions, GetDependentResourcesOfEnvironmentFromPipelineRuntime)
 }
 
 func GetDependentResourcesOfClusterFromPipelineRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
@@ -202,5 +203,21 @@ func GetDependentResourcesOfClusterFromPipelineRuntime(ctx context.Context, k8sC
 			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s/%s", runtime.Namespace, runtime.Name))
 		}
 	}
+	return dependencies, nil
+}
+
+func GetDependentResourcesOfEnvironmentFromPipelineRuntime(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error) {
+	runtimes, err := validateClient.ListProjectPipelineRuntime(ctx, productName)
+	if err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, runtime := range runtimes.Items {
+		if runtime.Spec.Destination == envName {
+			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s/%s", runtime.Namespace, runtime.Name))
+		}
+	}
+
 	return dependencies, nil
 }

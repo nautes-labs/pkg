@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,27 +63,33 @@ func (r *Environment) ValidateDelete() error {
 }
 
 func (r *Environment) IsDeletable(ctx context.Context, validateClient ValidateClient) error {
-	deploymentRuntimes, err := validateClient.ListDeploymentRuntime(ctx, r.Namespace)
+	dependencies, err := r.EnvironmentGetDependencies(ctx, validateClient)
 	if err != nil {
 		return err
 	}
 
-	for _, deploymentRuntime := range deploymentRuntimes.Items {
-		if deploymentRuntime.Spec.Destination == r.Name {
-			return fmt.Errorf("environment is referenced by deployment runtime %s", deploymentRuntime.Name)
-		}
-	}
-
-	pipelineRuntimes, err := validateClient.ListProjectPipelineRuntime(ctx, r.Namespace)
-	if err != nil {
-		return err
-	}
-
-	for _, pipelineRuntime := range pipelineRuntimes.Items {
-		if pipelineRuntime.Spec.Destination == r.Name {
-			return fmt.Errorf("environment is referenced by project pipeline runtime %s", pipelineRuntime.Name)
-		}
+	if len(dependencies) != 0 {
+		return fmt.Errorf("cluster referenced by [%s], not allowed to be deleted", strings.Join(dependencies, "|"))
 	}
 
 	return nil
+}
+
+//+kubebuilder:object:generate=false
+type GetEnvironmentSubResources func(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error)
+
+// GetEnvironmentSubResourceFunctions stores a set of methods for obtaining a list of environment sub-resources.
+// When the environment checks whether it is being referenced, it will loop through the method list here.
+var GetEnvironmentSubResourceFunctions = []GetEnvironmentSubResources{}
+
+func (r *Environment) EnvironmentGetDependencies(ctx context.Context, validateClient ValidateClient) ([]string, error) {
+	subResources := []string{}
+	for _, fn := range GetEnvironmentSubResourceFunctions {
+		resources, err := fn(ctx, validateClient, r.Namespace, r.Name)
+		if err != nil {
+			return nil, err
+		}
+		subResources = append(subResources, resources...)
+	}
+	return subResources, nil
 }

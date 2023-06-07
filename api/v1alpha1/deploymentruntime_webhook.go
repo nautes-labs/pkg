@@ -170,6 +170,7 @@ func (r *DeploymentRuntime) ValidateProjectRef(ctx context.Context, validateClie
 
 func init() {
 	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromDeploymentRuntime)
+	GetEnvironmentSubResourceFunctions = append(GetEnvironmentSubResourceFunctions, GetDependentResourcesOfEnvironmentFromDeploymentRuntime)
 }
 
 func GetDependentResourcesOfClusterFromDeploymentRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
@@ -185,5 +186,21 @@ func GetDependentResourcesOfClusterFromDeploymentRuntime(ctx context.Context, k8
 			dependencies = append(dependencies, fmt.Sprintf("deploymentRuntime/%s/%s", runtime.Namespace, runtime.Name))
 		}
 	}
+	return dependencies, nil
+}
+
+func GetDependentResourcesOfEnvironmentFromDeploymentRuntime(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error) {
+	runtimes, err := validateClient.ListDeploymentRuntime(ctx, productName)
+	if err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, runtime := range runtimes.Items {
+		if runtime.Spec.Destination == envName {
+			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s/%s", runtime.Namespace, runtime.Name))
+		}
+	}
+
 	return dependencies, nil
 }

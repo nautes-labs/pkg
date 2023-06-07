@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -95,7 +96,7 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 			return err
 		}
 		if len(dependencies) != 0 {
-			return fmt.Errorf("cluster referenced by %v, not allowed to be deleted", dependencies)
+			return fmt.Errorf("cluster referenced by [%s], not allowed to be deleted", strings.Join(dependencies, "|"))
 		}
 		return nil
 	}
@@ -118,7 +119,7 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 			r.Spec.Usage != old.Spec.Usage ||
 			r.Spec.HostCluster != old.Spec.HostCluster ||
 			r.Spec.WorkerType != old.Spec.WorkerType {
-			return fmt.Errorf("cluster referenced by %v, modifying [cluster kind, cluster type, usage, host cluster, worker type] is not allowed", dependencies)
+			return fmt.Errorf("cluster referenced by [%s], modifying [cluster kind, cluster type, usage, host cluster, worker type] is not allowed", strings.Join(dependencies, "|"))
 		}
 	}
 
@@ -152,7 +153,7 @@ func (r *Cluster) StaticCheck() error {
 //+kubebuilder:object:generate=false
 type GetClusterSubResources func(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error)
 
-// GetClusterSubResourceFunctions stores a set of methods for obtaining a list of Cluster sub-resources.
+// GetClusterSubResourceFunctions stores a set of methods for obtaining a list of cluster sub-resources.
 // When the cluster checks whether it is being referenced, it will loop through the method list here.
 var GetClusterSubResourceFunctions = []GetClusterSubResources{}
 
