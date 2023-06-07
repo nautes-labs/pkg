@@ -91,7 +91,7 @@ func (r *Cluster) ValidateDelete() error {
 // ValidateCluster check cluster is changeable
 func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient client.Client, isDelete bool) error {
 	if isDelete {
-		dependencies, err := r.ClusterGetDependencies(ctx, k8sClient)
+		dependencies, err := r.GetDependencies(ctx, k8sClient)
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 	}
 
 	if old != nil {
-		dependencies, err := r.ClusterGetDependencies(ctx, k8sClient)
+		dependencies, err := r.GetDependencies(ctx, k8sClient)
 		if err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ type GetClusterSubResources func(ctx context.Context, k8sClient client.Client, c
 // When the cluster checks whether it is being referenced, it will loop through the method list here.
 var GetClusterSubResourceFunctions = []GetClusterSubResources{}
 
-func (r *Cluster) ClusterGetDependencies(ctx context.Context, k8sClient client.Client) ([]string, error) {
+func (r *Cluster) GetDependencies(ctx context.Context, k8sClient client.Client) ([]string, error) {
 	subResources := []string{}
 	for _, fn := range GetClusterSubResourceFunctions {
 		resources, err := fn(ctx, k8sClient, r.Name)

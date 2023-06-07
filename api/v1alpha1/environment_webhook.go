@@ -63,13 +63,13 @@ func (r *Environment) ValidateDelete() error {
 }
 
 func (r *Environment) IsDeletable(ctx context.Context, validateClient ValidateClient) error {
-	dependencies, err := r.EnvironmentGetDependencies(ctx, validateClient)
+	dependencies, err := r.GetDependencies(ctx, validateClient)
 	if err != nil {
 		return err
 	}
 
 	if len(dependencies) != 0 {
-		return fmt.Errorf("cluster referenced by [%s], not allowed to be deleted", strings.Join(dependencies, "|"))
+		return fmt.Errorf("environment referenced by [%s], not allowed to be deleted", strings.Join(dependencies, "|"))
 	}
 
 	return nil
@@ -82,7 +82,7 @@ type GetEnvironmentSubResources func(ctx context.Context, validateClient Validat
 // When the environment checks whether it is being referenced, it will loop through the method list here.
 var GetEnvironmentSubResourceFunctions = []GetEnvironmentSubResources{}
 
-func (r *Environment) EnvironmentGetDependencies(ctx context.Context, validateClient ValidateClient) ([]string, error) {
+func (r *Environment) GetDependencies(ctx context.Context, validateClient ValidateClient) ([]string, error) {
 	subResources := []string{}
 	for _, fn := range GetEnvironmentSubResourceFunctions {
 		resources, err := fn(ctx, validateClient, r.Namespace, r.Name)

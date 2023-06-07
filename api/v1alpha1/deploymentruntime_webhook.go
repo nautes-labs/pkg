@@ -198,7 +198,7 @@ func GetDependentResourcesOfEnvironmentFromDeploymentRuntime(ctx context.Context
 	dependencies := []string{}
 	for _, runtime := range runtimes.Items {
 		if runtime.Spec.Destination == envName {
-			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s/%s", runtime.Namespace, runtime.Name))
+			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s", runtime.Name))
 		}
 	}
 
