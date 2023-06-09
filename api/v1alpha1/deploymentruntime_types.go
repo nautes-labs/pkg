@@ -49,14 +49,25 @@ func (r *DeploymentRuntime) GetDestination() string {
 type DeploymentRuntimeStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" yaml:"conditions"`
+	// +optional
+	Cluster string `json:"cluster,omitempty"`
+	// +optional
 	// +nullable
-	DeployHistory *DeployHistory `json:"deployHistory" yaml:"deployHistory"`
+	IllegalProjectRefs []IllegalProjectRef `json:"illegalProjectRefs,omitempty"`
+	// +nullable
+	DeployHistory *DeployHistory `json:"deployHistory,omitempty" yaml:"deployHistory"`
+}
+
+type IllegalProjectRef struct {
+	ProjectName string `json:"projectName"`
+	Reason      string `json:"reason"`
 }
 
 type DeployHistory struct {
-	ManifestSource ManifestSource `json:"manifestSource,omitempty" yaml:"manifestSource"`
-	Destination    string         `json:"destination" yaml:"source"`
-	Source         string         `json:"source" yaml:"source"`
+	ManifestSource ManifestSource `json:"manifestSource"`
+	Destination    string         `json:"destination"`
+	// The URL of the coderepo in the last successfully deployed runtime
+	Source string `json:"source"`
 }
 
 //+kubebuilder:object:root=true

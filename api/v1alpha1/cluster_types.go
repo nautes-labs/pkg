@@ -44,8 +44,8 @@ const (
 )
 
 const (
-	DEPLOYMENT_TYPE ClusterWorkType = "deployment"
-	PIPELINE_TYPE   ClusterWorkType = "pipeline"
+	ClusterWorkTypeDeployment ClusterWorkType = "deployment"
+	ClusterWorkTypePipeline   ClusterWorkType = "pipeline"
 )
 
 // ClusterSpec defines the desired state of Cluster

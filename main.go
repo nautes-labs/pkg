@@ -79,7 +79,10 @@ func main() {
 		os.Exit(1)
 	}
 	nautesv1alpha1.KubernetesClient = mgr.GetClient()
-	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepo{}, nautesv1alpha1.SelectFieldCodeRepoName, func(obj client.Object) []string {
+	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepo{}, nautesv1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
+		return []string{obj.GetName()}
+	})
+	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.Cluster{}, nautesv1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
 		return []string{obj.GetName()}
 	})
 	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepoBinding{}, nautesv1alpha1.SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {

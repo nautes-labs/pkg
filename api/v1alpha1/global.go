@@ -15,11 +15,24 @@
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	LABEL_FROM_PRODUCT          = "resource.nautes.io/reference"
+	LABEL_BELONG_TO_PRODUCT     = "resource.nautes.io/belongsto"
+	LABEL_FROM_PRODUCT_PROVIDER = "resource.nautes.io/from"
+)
+
+const (
+	EnvUseRealName = "USEREALNAME"
 )
 
 var (
@@ -86,4 +99,171 @@ func getClient() (client.Client, error) {
 		return nil, fmt.Errorf("kubernetes client is not initializated")
 	}
 	return KubernetesClient, nil
+}
+
+//+kubebuilder:object:generate=false
+type ValidateClient interface {
+	GetCodeRepo(ctx context.Context, name string) (*CodeRepo, error)
+	GetEnvironment(ctx context.Context, productName, name string) (*Environment, error)
+	GetCluster(ctx context.Context, name string) (*Cluster, error)
+	ListCodeRepoBinding(ctx context.Context, productName, repoName string) (*CodeRepoBindingList, error)
+	ListDeploymentRuntime(ctx context.Context, productName string) (*DeploymentRuntimeList, error)
+	ListProjectPipelineRuntime(ctx context.Context, productName string) (*ProjectPipelineRuntimeList, error)
+}
+
+// ValidateClientK8s is the k8s implementation of interface ValidateClient.
+// It's creation requires an implementation of client.Client.
+// This implementation requires adding the following indexes:
+//   metadata.name in resource Cluster.
+//   metadata.name in resource CodeRepo.
+//   productAndRepo in resource CodeRepoBinding. The format of the index value should be like "Product/CodeRepo".
+//+kubebuilder:object:generate=false
+type ValidateClientK8s struct {
+	client.Client
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=coderepoes,verbs=get;list
+
+func (c *ValidateClientK8s) GetCodeRepo(ctx context.Context, name string) (*CodeRepo, error) {
+	codeRepoList := &CodeRepoList{}
+	listOpt := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(SelectFieldMetaDataName, name),
+	}
+	if err := c.List(ctx, codeRepoList, listOpt); err != nil {
+		projectpipelineruntimelog.V(1).Info("grep code repo", "MatchNum", len(codeRepoList.Items))
+		return nil, err
+	}
+
+	count := len(codeRepoList.Items)
+	if count != 1 {
+		return nil, fmt.Errorf("returned %d results based on coderepo name %s", count, name)
+	}
+	return &codeRepoList.Items[0], nil
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=environments,verbs=get;list
+
+func (c *ValidateClientK8s) GetEnvironment(ctx context.Context, productName, name string) (*Environment, error) {
+	env := &Environment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: productName,
+		},
+	}
+
+	if err := c.Get(ctx, client.ObjectKeyFromObject(env), env); err != nil {
+		return nil, err
+	}
+
+	return env, nil
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list
+
+func (c *ValidateClientK8s) GetCluster(ctx context.Context, name string) (*Cluster, error) {
+	clusterList := &ClusterList{}
+	if err := c.List(ctx, clusterList, client.MatchingFields{"metadata.name": name}); err != nil {
+		return nil, err
+	}
+
+	count := len(clusterList.Items)
+	if count != 1 {
+		return nil, fmt.Errorf("returned %d results based on cluster name %s", count, name)
+	}
+
+	return &clusterList.Items[0], nil
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=coderepobindings,verbs=get;list
+
+func (c *ValidateClientK8s) ListCodeRepoBinding(ctx context.Context, productName, repoName string) (*CodeRepoBindingList, error) {
+	logger := logf.FromContext(ctx)
+
+	codeRepoBindingList := &CodeRepoBindingList{}
+	listVar := fmt.Sprintf("%s/%s", productName, repoName)
+	listOpt := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(SelectFieldCodeRepoBindingProductAndRepo, listVar),
+	}
+	if err := c.List(ctx, codeRepoBindingList, listOpt); err != nil {
+		return nil, err
+	}
+
+	logger.V(1).Info("grep code repo binding", "ListVar", listVar, "MatchNum", len(codeRepoBindingList.Items))
+	return codeRepoBindingList, nil
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list
+
+func (c *ValidateClientK8s) ListDeploymentRuntime(ctx context.Context, productName string) (*DeploymentRuntimeList, error) {
+	runtimes := &DeploymentRuntimeList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(productName),
+	}
+	if err := c.List(context.Background(), runtimes, listOpts...); err != nil {
+		return nil, err
+	}
+	return runtimes, nil
+}
+
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=projectpipelineruntimes,verbs=get;list
+
+func (c *ValidateClientK8s) ListProjectPipelineRuntime(ctx context.Context, productName string) (*ProjectPipelineRuntimeList, error) {
+	runtimes := &ProjectPipelineRuntimeList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(productName),
+	}
+	if err := c.List(context.Background(), runtimes, listOpts...); err != nil {
+		return nil, err
+	}
+	return runtimes, nil
+}
+
+func hasCodeRepoPermission(ctx context.Context, validateClient ValidateClient, productName, projectName, repoName string) error {
+	codeRepo, err := validateClient.GetCodeRepo(ctx, repoName)
+	if err != nil {
+		return err
+	}
+	if codeRepo.DeletionTimestamp.IsZero() &&
+		codeRepo.Spec.Product == productName &&
+		codeRepo.Spec.Project == projectName {
+		return nil
+	}
+
+	codeRepoBindingList, err := validateClient.ListCodeRepoBinding(ctx, productName, repoName)
+	if err != nil {
+		return err
+	}
+	for _, binding := range codeRepoBindingList.Items {
+		if !binding.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		// if projects is nil or empty, means the scope of permission is at the product level
+		if binding.Spec.Projects == nil || len(binding.Spec.Projects) == 0 {
+			return nil
+		}
+
+		for _, project := range binding.Spec.Projects {
+			if project == projectName {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("not permitted to use code repo %s", repoName)
+}
+
+//+kubebuilder:object:generate=false
+type Runtime interface {
+	GetProduct() string
+	GetName() string
+	GetDestination() string
+}
+
+func GetClusterByRuntime(ctx context.Context, client ValidateClient, runtime Runtime) (*Cluster, error) {
+	env, err := client.GetEnvironment(ctx, runtime.GetProduct(), runtime.GetDestination())
+	if err != nil {
+		return nil, err
+	}
+	return client.GetCluster(ctx, env.Spec.Cluster)
 }

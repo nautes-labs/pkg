@@ -17,12 +17,11 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,9 +48,7 @@ func (r *Cluster) Default() {
 }
 
 //+kubebuilder:webhook:path=/validate-nautes-resource-nautes-io-v1alpha1-cluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=clusters,verbs=create;update;delete,versions=v1alpha1,name=vcluster.kb.io,admissionReviewVersions=v1
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list;watch
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list;watch
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=environments,verbs=get;list;watch
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list
 
 var _ webhook.Validator = &Cluster{}
 
@@ -59,68 +56,85 @@ var _ webhook.Validator = &Cluster{}
 func (r *Cluster) ValidateCreate() error {
 	clusterlog.Info("validate create", "name", r.Name)
 
-	return ValidateCluster(r, nil, false)
+	k8sClient, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	return r.ValidateCluster(context.TODO(), nil, k8sClient, false)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Cluster) ValidateUpdate(old runtime.Object) error {
 	clusterlog.Info("validate update", "name", r.Name)
 
-	return ValidateCluster(r, old.(*Cluster), false)
+	k8sClient, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	return r.ValidateCluster(context.TODO(), old.(*Cluster), k8sClient, false)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *Cluster) ValidateDelete() error {
 	clusterlog.Info("validate delete", "name", r.Name)
 
-	return ValidateCluster(r, nil, true)
+	k8sClient, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	return r.ValidateCluster(context.TODO(), nil, k8sClient, true)
 }
 
 // ValidateCluster check cluster is changeable
-func ValidateCluster(new, old *Cluster, isDelete bool) error {
+func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient client.Client, isDelete bool) error {
 	if isDelete {
-		if new.Spec.Usage == CLUSTER_USAGE_HOST && new.hasVirtualCluster() {
-			return fmt.Errorf("cluster still has virtual cluster on it, it can not be remove")
-		}
-
-		hasRuntime, err := new.hasRuntime()
+		dependencies, err := r.GetDependencies(ctx, k8sClient)
 		if err != nil {
-			return fmt.Errorf("check has runtime failed: %w", err)
+			return err
 		}
-		if new.Spec.Usage == CLUSTER_USAGE_WORKER && hasRuntime {
-			return fmt.Errorf("cluster still has user resources on it, it can not be remove")
+		if len(dependencies) != 0 {
+			return fmt.Errorf("cluster referenced by [%s], not allowed to be deleted", strings.Join(dependencies, "|"))
 		}
-
 		return nil
 	}
 
-	if err := new.validateBasic(); err != nil {
+	if err := r.StaticCheck(); err != nil {
 		return err
 	}
 
 	if old != nil {
-		if new.Spec.Usage != old.Spec.Usage {
-			hasRuntime, err := new.hasRuntime()
-			if err != nil {
-				return fmt.Errorf("check has runtime failed: %w", err)
-			}
-			if new.Spec.Usage == CLUSTER_USAGE_HOST && hasRuntime {
-				return fmt.Errorf("cluster has runtime, change usage is not allow")
-			}
+		dependencies, err := r.GetDependencies(ctx, k8sClient)
+		if err != nil {
+			return err
+		}
+		if len(dependencies) == 0 {
+			return nil
+		}
 
-			if new.Spec.Usage == CLUSTER_USAGE_WORKER && new.hasVirtualCluster() {
-				return fmt.Errorf("cluster has virtual cluster on it, change usage is not allow")
-			}
+		if r.Spec.ClusterKind != old.Spec.ClusterKind ||
+			r.Spec.ClusterType != old.Spec.ClusterType ||
+			r.Spec.Usage != old.Spec.Usage ||
+			r.Spec.HostCluster != old.Spec.HostCluster ||
+			r.Spec.WorkerType != old.Spec.WorkerType {
+			return fmt.Errorf("cluster referenced by [%s], modifying [cluster kind, cluster type, usage, host cluster, worker type] is not allowed", strings.Join(dependencies, "|"))
 		}
 	}
 
 	return nil
 }
 
-func (r *Cluster) validateBasic() error {
-	if r.Spec.Usage == CLUSTER_USAGE_HOST &&
-		r.Spec.ClusterType != CLUSTER_TYPE_PHYSICAL {
-		return errors.New("host cluster can not be a virautl cluster")
+func (r *Cluster) StaticCheck() error {
+	if r.Spec.Usage == CLUSTER_USAGE_HOST {
+		if r.Spec.ClusterType != CLUSTER_TYPE_PHYSICAL {
+			return errors.New("host cluster can not be a virautl cluster")
+		}
+
+		if r.Spec.WorkerType != "" {
+			return fmt.Errorf("host cluster's work type should be empty")
+		}
 	}
 
 	if r.Spec.ClusterType == CLUSTER_TYPE_PHYSICAL &&
@@ -136,63 +150,41 @@ func (r *Cluster) validateBasic() error {
 	return nil
 }
 
-func (r *Cluster) hasVirtualCluster() bool {
-	clusters, err := getClusterList()
-	if err != nil {
-		return true
-	}
+//+kubebuilder:object:generate=false
+type GetClusterSubResources func(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error)
 
-	for i := 0; i < len(clusters.Items); i++ {
-		if clusters.Items[i].Spec.HostCluster == r.Name {
-			return true
-		}
-	}
-	return false
-}
+// GetClusterSubResourceFunctions stores a set of methods for obtaining a list of cluster sub-resources.
+// When the cluster checks whether it is being referenced, it will loop through the method list here.
+var GetClusterSubResourceFunctions = []GetClusterSubResources{}
 
-func (r *Cluster) hasRuntime() (bool, error) {
-	k8sClient, err := getClient()
-	if err != nil {
-		return false, err
-	}
-
-	runtimes := &DeploymentRuntimeList{}
-	err = k8sClient.List(context.TODO(), runtimes)
-	if err != nil {
-		return false, err
-	}
-
-	for _, runtime := range runtimes.Items {
-		env := &Environment{}
-		key := types.NamespacedName{
-			Namespace: runtime.Namespace,
-			Name:      runtime.Spec.Destination,
-		}
-		err := k8sClient.Get(context.TODO(), key, env)
+func (r *Cluster) GetDependencies(ctx context.Context, k8sClient client.Client) ([]string, error) {
+	subResources := []string{}
+	for _, fn := range GetClusterSubResourceFunctions {
+		resources, err := fn(ctx, k8sClient, r.Name)
 		if err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
-			}
-			return false, err
+			return nil, fmt.Errorf("get dependent resources failed: %w", err)
 		}
-
-		if env.Spec.Cluster == r.Name {
-			return true, nil
-		}
+		subResources = append(subResources, resources...)
 	}
 
-	return false, nil
+	return subResources, nil
 }
 
-func getClusterList() (*ClusterList, error) {
-	k8sClient, err := getClient()
-	if err != nil {
-		return nil, err
-	}
+func init() {
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromCluster)
+}
+
+func GetDependentResourcesOfClusterFromCluster(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
 	clusterList := &ClusterList{}
-	if err := k8sClient.List(context.TODO(), clusterList, &client.ListOptions{}); err != nil {
-		clusterlog.Error(err, "get cluster list failed")
+	if err := k8sClient.List(ctx, clusterList); err != nil {
 		return nil, err
 	}
-	return clusterList, nil
+
+	dependencies := []string{}
+	for _, cluster := range clusterList.Items {
+		if cluster.Spec.HostCluster == clusterName {
+			dependencies = append(dependencies, fmt.Sprintf("cluster/%s", cluster.Name))
+		}
+	}
+	return dependencies, nil
 }

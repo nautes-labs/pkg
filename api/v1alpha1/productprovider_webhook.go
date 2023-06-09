@@ -35,7 +35,6 @@ func (r *ProductProvider) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 //+kubebuilder:webhook:path=/validate-nautes-resource-nautes-io-v1alpha1-productprovider,mutating=false,failurePolicy=fail,sideEffects=None,groups=nautes.resource.nautes.io,resources=productproviders,verbs=delete,versions=v1alpha1,name=vproductprovider.kb.io,admissionReviewVersions=v1
-//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=products,verbs=get;list
 
 var _ webhook.Validator = &ProductProvider{}
 
@@ -62,16 +61,18 @@ func (r *ProductProvider) ValidateDelete() error {
 		return err
 	}
 
-	return r.IsDeletable(k8sClient)
+	return r.IsDeletable(context.TODO(), k8sClient)
 }
 
-func (r *ProductProvider) IsDeletable(k8sClient client.Client) error {
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=products,verbs=get;list
+
+func (r *ProductProvider) IsDeletable(ctx context.Context, k8sClient client.Client) error {
 	products := &ProductList{}
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{LABEL_FROM_PRODUCT_PROVIDER: r.Name}),
 		client.InNamespace(r.Namespace),
 	}
-	err := k8sClient.List(context.Background(), products, listOpts...)
+	err := k8sClient.List(ctx, products, listOpts...)
 	if err != nil {
 		return fmt.Errorf("list product failed: %w", err)
 	}

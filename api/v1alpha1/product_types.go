@@ -22,11 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	LABEL_FROM_PRODUCT      = "resource.nautes.io/reference"
-	LABEL_BELONG_TO_PRODUCT = "resource.nautes.io/belongsto"
-)
-
 // ProductSpec defines the desired state of Product
 type ProductSpec struct {
 	Name         string `json:"name" yaml:"name"`

@@ -17,6 +17,7 @@ package v1alpha1_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/nautes-labs/pkg/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -48,6 +49,7 @@ var _ = Describe("cluster webhook", func() {
 				ClusterKind: CLUSTER_KIND_KUBERNETES,
 				Usage:       CLUSTER_USAGE_WORKER,
 				HostCluster: "",
+				WorkerType:  ClusterWorkTypeDeployment,
 			},
 		}
 
@@ -102,17 +104,13 @@ var _ = Describe("cluster webhook", func() {
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
 	})
 
-	It("if cluster has runtime, delete cluster will failed", func() {
-		err := k8sClient.Create(ctx, runtime)
-		Expect(err).Should(BeNil())
-		err = k8sClient.Create(ctx, env)
-		Expect(err).Should(BeNil())
-
-		err = cluster.ValidateDelete()
+	It("if cluster is a virtual cluster without host cluster, create will failed", func() {
+		cluster.Spec.ClusterType = CLUSTER_TYPE_VIRTUAL
+		err := cluster.ValidateCreate()
 		Expect(err).ShouldNot(BeNil())
 	})
 
-	It("if cluster has runtime, but env not exist, delete cluster will successed", func() {
+	It("if cluster does not has runtime, delete cluster will successed", func() {
 		err := k8sClient.Create(ctx, runtime)
 		Expect(err).Should(BeNil())
 
@@ -120,14 +118,28 @@ var _ = Describe("cluster webhook", func() {
 		Expect(err).Should(BeNil())
 	})
 
-	It("if cluster has runtime, but env cluster not current, delete cluster will successed", func() {
+	It("if cluster has runtime, delete cluster will failed", func() {
 		err := k8sClient.Create(ctx, runtime)
 		Expect(err).Should(BeNil())
-		env.Spec.Cluster = "other"
-		err = k8sClient.Create(ctx, env)
+
+		runtime.Status.Cluster = cluster.Name
+		err = k8sClient.Status().Update(ctx, runtime)
 		Expect(err).Should(BeNil())
 
+		isTimeout := true
+		for i := 0; i < 3; i++ {
+			tmpRuntime := &DeploymentRuntime{}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(runtime), tmpRuntime)
+			Expect(err).Should(BeNil())
+			if tmpRuntime.Status.Cluster == cluster.Name {
+				isTimeout = false
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		Expect(isTimeout).Should(BeFalse())
+
 		err = cluster.ValidateDelete()
-		Expect(err).Should(BeNil())
+		Expect(err).ShouldNot(BeNil())
 	})
 })

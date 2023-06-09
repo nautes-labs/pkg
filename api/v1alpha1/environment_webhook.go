@@ -15,12 +15,12 @@
 package v1alpha1
 
 import (
-	"context"
 	"fmt"
+	"strings"
 
+	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -59,24 +59,37 @@ func (r *Environment) ValidateDelete() error {
 	if err != nil {
 		return err
 	}
-	return r.IsDeletable(k8sClient)
+	return r.IsDeletable(context.TODO(), &ValidateClientK8s{Client: k8sClient})
 }
 
-func (r *Environment) IsDeletable(k8sClient client.Client) error {
-	deploymentRuntimes := &DeploymentRuntimeList{}
-	listOpts := client.ListOptions{
-		Namespace: r.Namespace,
-	}
-	err := k8sClient.List(context.Background(), deploymentRuntimes, &listOpts)
+func (r *Environment) IsDeletable(ctx context.Context, validateClient ValidateClient) error {
+	dependencies, err := r.GetDependencies(ctx, validateClient)
 	if err != nil {
 		return err
 	}
 
-	for _, deploymentRuntime := range deploymentRuntimes.Items {
-		if deploymentRuntime.Spec.Destination == r.Name {
-			return fmt.Errorf("environment is referenced by runtime")
-		}
+	if len(dependencies) != 0 {
+		return fmt.Errorf("environment referenced by [%s], not allowed to be deleted", strings.Join(dependencies, "|"))
 	}
 
 	return nil
+}
+
+//+kubebuilder:object:generate=false
+type GetEnvironmentSubResources func(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error)
+
+// GetEnvironmentSubResourceFunctions stores a set of methods for obtaining a list of environment sub-resources.
+// When the environment checks whether it is being referenced, it will loop through the method list here.
+var GetEnvironmentSubResourceFunctions = []GetEnvironmentSubResources{}
+
+func (r *Environment) GetDependencies(ctx context.Context, validateClient ValidateClient) ([]string, error) {
+	subResources := []string{}
+	for _, fn := range GetEnvironmentSubResourceFunctions {
+		resources, err := fn(ctx, validateClient, r.Namespace, r.Name)
+		if err != nil {
+			return nil, err
+		}
+		subResources = append(subResources, resources...)
+	}
+	return subResources, nil
 }
