@@ -101,7 +101,7 @@ func getClient() (client.Client, error) {
 	return KubernetesClient, nil
 }
 
-//+kubebuilder:object:generate=false
+// +kubebuilder:object:generate=false
 type ValidateClient interface {
 	GetCodeRepo(ctx context.Context, name string) (*CodeRepo, error)
 	GetEnvironment(ctx context.Context, productName, name string) (*Environment, error)
@@ -114,10 +114,12 @@ type ValidateClient interface {
 // ValidateClientK8s is the k8s implementation of interface ValidateClient.
 // It's creation requires an implementation of client.Client.
 // This implementation requires adding the following indexes:
-//   metadata.name in resource Cluster.
-//   metadata.name in resource CodeRepo.
-//   productAndRepo in resource CodeRepoBinding. The format of the index value should be like "Product/CodeRepo".
-//+kubebuilder:object:generate=false
+//
+//	metadata.name in resource Cluster.
+//	metadata.name in resource CodeRepo.
+//	productAndRepo in resource CodeRepoBinding. The format of the index value should be like "Product/CodeRepo".
+//
+// +kubebuilder:object:generate=false
 type ValidateClientK8s struct {
 	client.Client
 }
@@ -253,7 +255,7 @@ func hasCodeRepoPermission(ctx context.Context, validateClient ValidateClient, p
 	return fmt.Errorf("not permitted to use code repo %s", repoName)
 }
 
-//+kubebuilder:object:generate=false
+// +kubebuilder:object:generate=false
 type Runtime interface {
 	GetProduct() string
 	GetName() string

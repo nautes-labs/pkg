@@ -150,7 +150,7 @@ func (r *Cluster) StaticCheck() error {
 	return nil
 }
 
-//+kubebuilder:object:generate=false
+// +kubebuilder:object:generate=false
 type GetClusterSubResources func(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error)
 
 // GetClusterSubResourceFunctions stores a set of methods for obtaining a list of cluster sub-resources.
