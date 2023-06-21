@@ -75,7 +75,7 @@ func (r *Environment) IsDeletable(ctx context.Context, validateClient ValidateCl
 	return nil
 }
 
-//+kubebuilder:object:generate=false
+// +kubebuilder:object:generate=false
 type GetEnvironmentSubResources func(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error)
 
 // GetEnvironmentSubResourceFunctions stores a set of methods for obtaining a list of environment sub-resources.

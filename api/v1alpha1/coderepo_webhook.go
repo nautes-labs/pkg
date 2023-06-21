@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"regexp"
 
 	nautesconfigs "github.com/nautes-labs/pkg/pkg/nautesconfigs"
@@ -88,6 +90,8 @@ func (r *CodeRepo) ValidateDelete() error {
 	return r.IsDeletable(k8sClient)
 }
 
+const defaultNamespaceFilePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
 func (r *CodeRepo) GetURL(spec CodeRepoSpec) (string, error) {
 	if spec.URL != "" {
 		return spec.URL, nil
@@ -97,7 +101,17 @@ func (r *CodeRepo) GetURL(spec CodeRepoSpec) (string, error) {
 			return "", err
 		}
 
-		configs, err := nautesconfigs.NewConfigInstanceForK8s("nautes", "nautes-configs", "")
+		namespaceName := "nautes"
+		if _, err := os.Stat(defaultNamespaceFilePath); err == nil {
+			data, err := ioutil.ReadFile(defaultNamespaceFilePath)
+			if err != nil {
+				coderepolog.Error(err, "file name", defaultNamespaceFilePath)
+				return "", err
+			}
+			namespaceName = string(data)
+		}
+
+		configs, err := nautesconfigs.NewConfigInstanceForK8s(namespaceName, "nautes-configs", "")
 		if err != nil {
 			return "", nil
 		}
