@@ -1,6 +1,6 @@
 # Package
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![golang](https://img.shields.io/badge/golang-v1.17.13-brightgreen)](https://go.dev/doc/install)
+[![golang](https://img.shields.io/badge/golang-v1.20.0-brightgreen)](https://go.dev/doc/install)
 [![version](https://img.shields.io/badge/version-v0.3.2-green)]()
 
 PKG 项目主要是用于存放 Nautes 中可重用的 CRD(Custom Resource Definition) 和 CRD Webhook 的源文件，这些 CRD 会被 Nautes 中多个组件依赖，除此之外，PKG 还包含一些可以被其他组件使用的公共库：
@@ -37,7 +37,7 @@ PKG 中的 CRD Webhook 主要是提供校验资源有效性的功能，包括：
 ### 构建
 
 ```shell
-go mod tidy -go=1.16 && go mod tidy -go=1.17
+go mod tidy
 go build -o manager main.go
 ```
 
@@ -49,22 +49,14 @@ go build -o manager main.go
 
 ### 单元测试
 
-安装 Envtest
-
-```shell
-go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-setup-envtest use 1.21.x
-export KUBEBUILDER_ASSETS=$HOME/.local/share/kubebuilder-envtest/k8s/1.21.4-linux-amd64
-```
-
 安装 Ginkgo
 
 ```shell
-go install github.com/onsi/ginkgo/v2/ginkgo@v2.3.1
+go install github.com/onsi/ginkgo/v2/ginkgo@v2.10.0
 ```
 
 执行单元测试
 
 ```shell
-ginkgo -r
+make test
 ```
