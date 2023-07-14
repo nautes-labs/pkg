@@ -69,21 +69,58 @@ type ClusterSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum="";pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
-	WorkerType ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
+	WorkerType     ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
+	ComponentsList ComponentsList  `json:"componentsList"`
+	// +optional
+	// ReservedNamespacesAllowedProducts key is namespace name, value is the product name list witch can use namespace.
+	ReservedNamespacesAllowedProducts map[string][]string `json:"reservedNamespacesAllowedProducts"`
+	// +optional
+	// ReservedNamespacesAllowedProducts key is product name, value is the list of cluster resources.
+	ProductAllowedClusterResources map[string][]ClusterResourceInfo `json:"productAllowedClusterResources"`
+}
+
+type ClusterResourceInfo struct {
+	Kind  string `json:"kind"`
+	Group string `json:"group"`
+}
+
+type Component struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+type ComponentsList struct {
+	// +optional
+	MultiTenant *Component `json:"multiTenant"`
+	// +optional
+	CertMgt *Component `json:"certMgt"`
+	// +optional
+	SecretMgt *Component `json:"secretMgt"`
+	// +optional
+	SecretSync *Component `json:"secretSync"`
+	// +optional
+	IngressController *Component `json:"ingressController"`
+	// +optional
+	Deployment *Component `json:"deployment"`
+	// +optional
+	ProgressiveDelivery *Component `json:"progressiveDelivery"`
 }
 
 // ClusterStatus defines the observed state of Cluster
 type ClusterStatus struct {
 	// +optional
-	// +nullable
 	Conditions []metav1.Condition `json:"conditions,omitempty" yaml:"conditions"`
 	// +optional
 	MgtAuthStatus *MgtClusterAuthStatus `json:"mgtAuthStatus,omitempty" yaml:"mgtAuthStatus"`
 	// +optional
 	Sync2ArgoStatus *SyncCluster2ArgoStatus `json:"sync2ArgoStatus,omitempty" yaml:"sync2ArgoStatus"`
 	// +optional
-	// +nullable
 	EntryPoints map[string]ClusterEntryPoint `json:"entryPoints,omitempty" yaml:"entryPoints"`
+	// +optional
+	Warnings []Warning `json:"warnings"`
+	// +optional
+	// PruoductIDMap records the corresponding relationship between product name and product in kubernetes.
+	ProductIDMap map[string]string `json:"productIDMap"`
 }
 
 type ServiceType string
@@ -111,6 +148,12 @@ type SyncCluster2ArgoStatus struct {
 	LastSuccessSpec string      `json:"lastSuccessSpec" yaml:"lastSuccessSpec"`
 	LastSuccessTime metav1.Time `json:"lastSuccessTime" yaml:"lastSuccessTime"`
 	SecretID        string      `json:"secretID" yaml:"secretID"`
+}
+
+type Warning struct {
+	AlarmType string `json:"type"`
+	AlarmFrom string `json:"from"`
+	Message   string `json:"message"`
 }
 
 func (status *ClusterStatus) GetConditions(conditionTypes map[string]bool) []metav1.Condition {
