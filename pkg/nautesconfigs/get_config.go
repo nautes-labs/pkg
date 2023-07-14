@@ -16,6 +16,7 @@ package configs
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 
 	"github.com/nautes-labs/pkg/pkg/kubeconvert"
@@ -29,10 +30,12 @@ import (
 )
 
 const (
-	ENV_CFG_NAMESPACE     = "NATUESCFGNAMESPACE"
-	ENV_CFG_NAME          = "NATUESCFGNAME"
-	DEFAULT_CFG_NAMESPACE = "nautes"
-	DEFAULT_CFG_NAME      = "nautes-configs"
+	ENV_CFG_NAMESPACE      = "NATUESCFGNAMESPACE"
+	ENV_CFG_NAME           = "NATUESCFGNAME"
+	DEFAULT_CFG_NAMESPACE  = "nautes"
+	DEFAULT_CFG_NAME       = "nautes-configs"
+	DefaultConfigName      = "nautes"
+	DefaultConfigNamespace = "nautes-configs"
 )
 
 type NautesConfigs struct {
@@ -121,5 +124,61 @@ func NewConfigInstanceForK8s(namespace, configMap string, kubeconfig string) (*C
 		return nil, err
 	}
 
+	return NewConfig(cm.Data["config"])
+}
+
+const DefaultNautesConfigPath = "/opt/nautes/configs/config.yaml"
+const EnvNautesConfigPath = "NAUTESCONFIGPATH"
+
+// NewNautesConfigFromFile will return a nautes config from specify path
+// If path is empty. It will try to find files based on environment variables and default values
+func NewNautesConfigFromFile(path string) (*Config, error) {
+	var filePath string
+
+	filePathFromEnv, EnvExisted := os.LookupEnv(EnvNautesConfigPath)
+
+	if path != "" {
+		filePath = path
+	} else if EnvExisted {
+		filePath = filePathFromEnv
+	} else {
+		filePath = DefaultNautesConfigPath
+	}
+
+	configsByte, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewConfig(string(configsByte))
+}
+
+type NewNautesConfigsOpt func(*NewConfigOptions)
+type NewConfigOptions struct {
+	Name      string
+	Namespace string
+}
+
+// NewNautesConfigFromKubernetes will return a nautes config from kubernetes
+func NewNautesConfigFromKubernetes(ctx context.Context, k8sClient client.Client, opts ...NewNautesConfigsOpt) (*Config, error) {
+	cm := &corev1.ConfigMap{}
+
+	NauteConfigOpts := &NewConfigOptions{
+		Namespace: DefaultConfigNamespace,
+		Name:      DefaultConfigName,
+	}
+
+	for _, fn := range opts {
+		fn(NauteConfigOpts)
+	}
+
+	namespacedNames := types.NamespacedName{
+		Namespace: NauteConfigOpts.Namespace,
+		Name:      NauteConfigOpts.Name,
+	}
+
+	if err := k8sClient.Get(ctx, namespacedNames, cm); err != nil {
+		return nil, err
+	}
 	return NewConfig(cm.Data["config"])
 }

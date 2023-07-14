@@ -54,7 +54,6 @@ var logger logr.Logger
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Api Webhookd Suite")
-
 }
 
 var _ = BeforeSuite(func() {
