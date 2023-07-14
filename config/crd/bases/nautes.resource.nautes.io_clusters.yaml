@@ -61,12 +61,109 @@ spec:
                 - physical
                 - virtual
                 type: string
+              componentsList:
+                properties:
+                  certMgt:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  deployment:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  ingressController:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  multiTenant:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  progressiveDelivery:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  secretMgt:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  secretSync:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                type: object
               hostCluster:
                 type: string
               primaryDomain:
                 description: PrimaryDomain is used to build the domain of components
                   within the cluster
                 type: string
+              productAllowedClusterResources:
+                additionalProperties:
+                  items:
+                    properties:
+                      group:
+                        type: string
+                      kind:
+                        type: string
+                    required:
+                    - group
+                    - kind
+                    type: object
+                  type: array
+                description: ReservedNamespacesAllowedProducts key is product name,
+                  value is the list of cluster resources.
+                type: object
+              reservedNamespacesAllowedProducts:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: ReservedNamespacesAllowedProducts key is namespace name,
+                  value is the product name list witch can use namespace.
+                type: object
               usage:
                 description: the usage of cluster, for user use it directry or deploy
                   vcluster on it
@@ -85,6 +182,7 @@ spec:
             required:
             - apiServer
             - clusterType
+            - componentsList
             - usage
             type: object
           status:
@@ -157,7 +255,6 @@ spec:
                   - status
                   - type
                   type: object
-                nullable: true
                 type: array
               entryPoints:
                 additionalProperties:
@@ -172,7 +269,6 @@ spec:
                     type:
                       type: string
                   type: object
-                nullable: true
                 type: object
               mgtAuthStatus:
                 properties:
@@ -188,6 +284,12 @@ spec:
                 - lastSuccessTime
                 - secretID
                 type: object
+              productIDMap:
+                additionalProperties:
+                  type: string
+                description: PruoductIDMap records the corresponding relationship
+                  between product name and product in kubernetes.
+                type: object
               sync2ArgoStatus:
                 properties:
                   lastSuccessSpec:
@@ -202,6 +304,21 @@ spec:
                 - lastSuccessTime
                 - secretID
                 type: object
+              warnings:
+                items:
+                  properties:
+                    from:
+                      type: string
+                    message:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - from
+                  - message
+                  - type
+                  type: object
+                type: array
             type: object
         type: object
     served: true
