@@ -45,6 +45,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var nautesNamespaceName = "nautes"
+var tmpNamespaceName = "tmp"
 
 var mgr manager.Manager
 var ctx context.Context
@@ -80,6 +81,13 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nautesNamespaceName,
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tmpNamespaceName,
 		},
 	})
 	Expect(err).NotTo(HaveOccurred())

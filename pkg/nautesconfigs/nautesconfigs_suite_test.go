@@ -34,20 +34,20 @@ nautes:
 	})
 
 	It("will read from input if input is not empty.", func() {
-		cfg, err := configs.NewNautesConfigFromFile(configPath)
+		cfg, err := configs.NewNautesConfigFromFile(configs.FilePath(configPath))
 		Expect(err).Should(BeNil())
 		Expect(cfg.Nautes.Namespace).Should(Equal("testNamespace"))
 	})
 
 	It("will read from env when env is set.", func() {
 		os.Setenv(configs.EnvNautesConfigPath, configPath)
-		cfg, err := configs.NewNautesConfigFromFile("")
+		cfg, err := configs.NewNautesConfigFromFile()
 		Expect(err).Should(BeNil())
 		Expect(cfg.Nautes.Namespace).Should(Equal("testNamespace"))
 	})
 
 	It("will throw an error if file not exist", func() {
-		_, err := configs.NewNautesConfigFromFile("")
+		_, err := configs.NewNautesConfigFromFile()
 		Expect(os.IsNotExist(err)).Should(BeTrue())
 	})
 })

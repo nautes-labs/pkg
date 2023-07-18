@@ -59,7 +59,7 @@ func (r *Environment) ValidateDelete() error {
 	if err != nil {
 		return err
 	}
-	return r.IsDeletable(context.TODO(), &ValidateClientK8s{Client: k8sClient})
+	return r.IsDeletable(context.TODO(), &ValidateClientFromK8s{Client: k8sClient})
 }
 
 func (r *Environment) IsDeletable(ctx context.Context, validateClient ValidateClient) error {

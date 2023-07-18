@@ -39,10 +39,14 @@ var _ = Describe("cluster webhook", func() {
 	var source *CodeRepo
 	var eventRepo *CodeRepo
 	var codeRepoBinding *CodeRepoBinding
+	var cleanBox []client.Object
+	var useNamespace string
 	BeforeEach(func() {
 		ctx = context.Background()
+		cleanBox = []client.Object{}
 		productName = fmt.Sprintf("product-%s", randNum())
 		projectName = fmt.Sprintf("project-%s", randNum())
+		useNamespace = fmt.Sprintf("ns-%s", randNum())
 		cluster = &Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("cluster-%s", randNum()),
@@ -118,6 +122,7 @@ var _ = Describe("cluster webhook", func() {
 			},
 			Spec: DeploymentRuntimeSpec{
 				Product:     productName,
+				Namespaces:  []string{useNamespace},
 				ProjectsRef: []string{projectName},
 				ManifestSource: ManifestSource{
 					CodeRepo:       source.Name,
@@ -133,6 +138,8 @@ var _ = Describe("cluster webhook", func() {
 		err = k8sClient.Create(ctx, cluster)
 		Expect(err).Should(BeNil())
 
+		cleanBox = append(cleanBox, env, cluster, runtime, codeRepoBinding, eventRepo, source)
+
 		logger.V(1).Info("=====Case start=====")
 		logger.V(1).Info("product", "Name", productName)
 		logger.V(1).Info("project", "Name", projectName)
@@ -140,28 +147,17 @@ var _ = Describe("cluster webhook", func() {
 	})
 
 	AfterEach(func() {
-		err := k8sClient.Delete(ctx, runtime)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = k8sClient.Delete(ctx, codeRepoBinding)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+		for _, obj := range cleanBox {
+			err := k8sClient.Delete(ctx, obj)
+			Expect(client.IgnoreNotFound(err)).Should(BeNil())
+			err = waitForDelete(obj)
+			Expect(err).Should(BeNil())
+		}
 
-		err = k8sClient.Delete(ctx, source)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = waitForDelete(source)
-		Expect(err).Should(BeNil())
-
-		err = k8sClient.Delete(ctx, eventRepo)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = waitForDelete(eventRepo)
-		Expect(err).Should(BeNil())
-
-		err = k8sClient.Delete(ctx, env)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = k8sClient.Delete(ctx, ns)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = k8sClient.Delete(ctx, cluster)
+		err := k8sClient.Delete(ctx, ns)
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
 	})
+
 	It("if project has permission to use coderepo, create will successed", func() {
 		err := k8sClient.Create(ctx, source)
 		Expect(err).Should(BeNil())
@@ -266,4 +262,28 @@ var _ = Describe("cluster webhook", func() {
 		Expect(err).ShouldNot(BeNil())
 	})
 
+	It("when namespace is a conponent's namespace, create will failed", func() {
+		cluster.Spec.ComponentsList.Deployment = &Component{
+			Name:      "x",
+			Namespace: useNamespace,
+		}
+		err := k8sClient.Update(ctx, cluster)
+		Expect(err).Should(BeNil())
+
+		err = runtime.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("when namespace is used by other product, create will failed", func() {
+		runtime2 := runtime.DeepCopy()
+		product2Name := fmt.Sprintf("product-%s", randNum())
+		runtime2.Namespace = tmpNamespaceName
+		runtime2.Spec.Product = product2Name
+		err := k8sClient.Create(ctx, runtime2)
+		Expect(err).Should(BeNil())
+		cleanBox = append(cleanBox, runtime2)
+
+		err = runtime.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
+	})
 })

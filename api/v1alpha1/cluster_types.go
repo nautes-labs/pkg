@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,25 +86,60 @@ type ClusterResourceInfo struct {
 }
 
 type Component struct {
-	Name      string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
 }
 
+// ComponentsList declares the specific components used by the cluster
 type ComponentsList struct {
+	// +optional
+	CertMgt *Component `json:"certMgt"`
+	// +optional
+	Deployment *Component `json:"deployment"`
+	// +optional
+	EventListener *Component `json:"eventListener"`
+	// +optional
+	IngressController *Component `json:"ingressController"`
 	// +optional
 	MultiTenant *Component `json:"multiTenant"`
 	// +optional
-	CertMgt *Component `json:"certMgt"`
+	Pipeline *Component `json:"pipeline"`
+	// +optional
+	ProgressiveDelivery *Component `json:"progressiveDelivery"`
 	// +optional
 	SecretMgt *Component `json:"secretMgt"`
 	// +optional
 	SecretSync *Component `json:"secretSync"`
-	// +optional
-	IngressController *Component `json:"ingressController"`
-	// +optional
-	Deployment *Component `json:"deployment"`
-	// +optional
-	ProgressiveDelivery *Component `json:"progressiveDelivery"`
+}
+
+func (c ComponentsList) GetNamespaces() []string {
+	namespaces := []string{}
+	componentType := reflect.TypeOf(&Component{})
+
+	vars := reflect.ValueOf(c)
+	for i := 0; i < vars.NumField(); i++ {
+		f := vars.Field(i)
+		if f.Type() == componentType && !f.IsNil() {
+			component := f.Elem().Interface().(Component)
+			namespaces = append(namespaces, component.Namespace)
+		}
+
+	}
+
+	return namespaces
+}
+
+func (c ComponentsList) GetNamespacesMap() map[string]bool {
+	reservedNamespace := c.GetNamespaces()
+
+	mapReservedNamespace := make(map[string]bool)
+	for _, namespace := range reservedNamespace {
+		mapReservedNamespace[namespace] = true
+	}
+
+	return mapReservedNamespace
 }
 
 // ClusterStatus defines the observed state of Cluster
@@ -151,9 +187,12 @@ type SyncCluster2ArgoStatus struct {
 }
 
 type Warning struct {
-	AlarmType string `json:"type"`
-	AlarmFrom string `json:"from"`
-	Message   string `json:"message"`
+	Type string `json:"type"`
+	// From is which operator recorded this warning.
+	From string `json:"from"`
+	// ID records the unique identifier of the warning.
+	ID      string `json:"id"`
+	Message string `json:"message"`
 }
 
 func (status *ClusterStatus) GetConditions(conditionTypes map[string]bool) []metav1.Condition {

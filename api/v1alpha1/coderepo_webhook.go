@@ -20,15 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
+	"strings"
 
 	nautesconfigs "github.com/nautes-labs/pkg/pkg/nautesconfigs"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -87,7 +86,7 @@ func (r *CodeRepo) ValidateDelete() error {
 	if err != nil {
 		return err
 	}
-	return r.IsDeletable(k8sClient)
+	return r.IsDeletable(context.TODO(), NewValidateClientFromK8s(k8sClient))
 }
 
 const defaultNamespaceFilePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
@@ -101,17 +100,7 @@ func (r *CodeRepo) GetURL(spec CodeRepoSpec) (string, error) {
 			return "", err
 		}
 
-		namespaceName := "nautes"
-		if _, err := os.Stat(defaultNamespaceFilePath); err == nil {
-			data, err := ioutil.ReadFile(defaultNamespaceFilePath)
-			if err != nil {
-				coderepolog.Error(err, "file name", defaultNamespaceFilePath)
-				return "", err
-			}
-			namespaceName = string(data)
-		}
-
-		configs, err := nautesconfigs.NewConfigInstanceForK8s(namespaceName, "nautes-configs", "")
+		configs, err := nautesconfigs.NewNautesConfigFromFile()
 		if err != nil {
 			return "", nil
 		}
@@ -159,19 +148,41 @@ func (r *CodeRepo) Validate() error {
 	return nil
 }
 
-func (r *CodeRepo) IsDeletable(k8sClient client.Client) error {
-	deploymentRuntimes := &DeploymentRuntimeList{}
-	listOpts := &client.ListOptions{
-		Namespace: r.Namespace,
-	}
-	if err := k8sClient.List(context.Background(), deploymentRuntimes, listOpts); err != nil {
+func (r *CodeRepo) IsDeletable(ctx context.Context, client ValidateClient) error {
+	dependencies, err := r.GetDependencies(ctx, client)
+	if err != nil {
 		return err
 	}
-
-	for _, deploymentRuntime := range deploymentRuntimes.Items {
-		if deploymentRuntime.Spec.ManifestSource.CodeRepo == r.Name {
-			return fmt.Errorf("code repo is referenced by runtime")
-		}
+	if len(dependencies) != 0 {
+		return fmt.Errorf("coderepo referenced by [%s], not allowed to be deleted", strings.Join(dependencies, "|"))
 	}
+
 	return nil
+}
+
+// +kubebuilder:object:generate=false
+type GetCodeRepoSubResources func(ctx context.Context, client ValidateClient, CodeRepoName string) ([]string, error)
+
+var GetCoderepoSubResourceFunctions = []GetCodeRepoSubResources{}
+
+func (r *CodeRepo) GetDependencies(ctx context.Context, client ValidateClient) ([]string, error) {
+	subResources := []string{}
+	for _, fn := range GetCoderepoSubResourceFunctions {
+		resources, err := fn(ctx, client, r.Name)
+		if err != nil {
+			return nil, fmt.Errorf("get dependent resources failed: %w", err)
+		}
+		subResources = append(subResources, resources...)
+	}
+
+	return subResources, nil
+}
+
+func getCodeRepoName(codeRepo *CodeRepo) string {
+	_, exist := os.LookupEnv(EnvUseRealName)
+	if exist {
+		return codeRepo.Spec.RepoName
+	}
+
+	return codeRepo.Name
 }

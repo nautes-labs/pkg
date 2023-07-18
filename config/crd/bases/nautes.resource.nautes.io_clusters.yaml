@@ -62,12 +62,16 @@ spec:
                 - virtual
                 type: string
               componentsList:
+                description: ComponentsList declares the specific components used
+                  by the cluster
                 properties:
                   certMgt:
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -76,8 +80,22 @@ spec:
                   deployment:
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  eventListener:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -86,8 +104,10 @@ spec:
                   ingressController:
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -96,8 +116,22 @@ spec:
                   multiTenant:
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  pipeline:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -106,8 +140,10 @@ spec:
                   progressiveDelivery:
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -116,8 +152,10 @@ spec:
                   secretMgt:
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -126,8 +164,10 @@ spec:
                   secretSync:
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -308,6 +348,10 @@ spec:
                 items:
                   properties:
                     from:
+                      description: From is which operator recorded this warning.
+                      type: string
+                    id:
+                      description: ID records the unique identifier of the warning.
                       type: string
                     message:
                       type: string
@@ -315,6 +359,7 @@ spec:
                       type: string
                   required:
                   - from
+                  - id
                   - message
                   - type
                   type: object

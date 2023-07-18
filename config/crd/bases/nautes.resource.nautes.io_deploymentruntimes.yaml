@@ -57,6 +57,11 @@ spec:
                 required:
                 - path
                 type: object
+              namespaces:
+                description: Namespaces are the namespaces required for this runtime.
+                items:
+                  type: string
+                type: array
               product:
                 type: string
               projectsRef:
