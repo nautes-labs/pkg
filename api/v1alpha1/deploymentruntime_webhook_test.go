@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,16 +41,19 @@ var _ = Describe("cluster webhook", func() {
 	var eventRepo *CodeRepo
 	var codeRepoBinding *CodeRepoBinding
 	var cleanBox []client.Object
+	var cleanBoxNamespace []client.Object
 	var useNamespace string
 	BeforeEach(func() {
 		ctx = context.Background()
 		cleanBox = []client.Object{}
-		productName = fmt.Sprintf("product-%s", randNum())
-		projectName = fmt.Sprintf("project-%s", randNum())
-		useNamespace = fmt.Sprintf("ns-%s", randNum())
+		seed := randNum()
+
+		productName = fmt.Sprintf("product-%s", seed)
+		projectName = fmt.Sprintf("project-%s", seed)
+		useNamespace = fmt.Sprintf("ns-%s", seed)
 		cluster = &Cluster{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("cluster-%s", randNum()),
+				Name:      fmt.Sprintf("cluster-%s", seed),
 				Namespace: nautesNamespaceName,
 			},
 			Spec: ClusterSpec{
@@ -73,7 +77,7 @@ var _ = Describe("cluster webhook", func() {
 
 		env = &Environment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("env-%s", randNum()),
+				Name:      fmt.Sprintf("env-%s", seed),
 				Namespace: ns.Name,
 			},
 			Spec: EnvironmentSpec{
@@ -85,7 +89,7 @@ var _ = Describe("cluster webhook", func() {
 
 		source = &CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("repo-%s", randNum()),
+				Name:      fmt.Sprintf("repo-%s", seed),
 				Namespace: ns.Name,
 			},
 			Spec: CodeRepoSpec{
@@ -104,7 +108,7 @@ var _ = Describe("cluster webhook", func() {
 
 		codeRepoBinding = &CodeRepoBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("binding-%s", randNum()),
+				Name:      fmt.Sprintf("binding-%s", seed),
 				Namespace: ns.Name,
 			},
 			Spec: CodeRepoBindingSpec{
@@ -117,19 +121,21 @@ var _ = Describe("cluster webhook", func() {
 
 		runtime = &DeploymentRuntime{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("runtime-%s", randNum()),
+				Name:      fmt.Sprintf("runtime-%s", seed),
 				Namespace: ns.Name,
 			},
 			Spec: DeploymentRuntimeSpec{
 				Product:     productName,
-				Namespaces:  []string{useNamespace},
 				ProjectsRef: []string{projectName},
 				ManifestSource: ManifestSource{
 					CodeRepo:       source.Name,
 					TargetRevision: "HEAD",
 					Path:           "/",
 				},
-				Destination: env.Name,
+				Destination: DeploymentRuntimesDestination{
+					Environment: env.Name,
+					Namespaces:  []string{useNamespace},
+				},
 			},
 		}
 
@@ -154,8 +160,10 @@ var _ = Describe("cluster webhook", func() {
 			Expect(err).Should(BeNil())
 		}
 
-		err := k8sClient.Delete(ctx, ns)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+		for _, obj := range cleanBoxNamespace {
+			err := k8sClient.Delete(ctx, obj)
+			Expect(client.IgnoreNotFound(err)).Should(BeNil())
+		}
 	})
 
 	It("if project has permission to use coderepo, create will successed", func() {
@@ -275,15 +283,76 @@ var _ = Describe("cluster webhook", func() {
 	})
 
 	It("when namespace is used by other product, create will failed", func() {
+		var err error
+
+		product2Name := fmt.Sprintf("%s-2", runtime.Spec.Product)
+
+		namespace2 := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: product2Name,
+			},
+		}
+		err = k8sClient.Create(ctx, namespace2)
+		Expect(err).Should(BeNil())
+		cleanBoxNamespace = append(cleanBoxNamespace, namespace2)
+
+		env2 := env.DeepCopy()
+		env2.ResourceVersion = ""
+		env2.Namespace = product2Name
+		env2.Spec.Product = product2Name
+		err = k8sClient.Create(ctx, env2)
+		Expect(err).Should(BeNil())
+		cleanBox = append(cleanBox, env2)
+
 		runtime2 := runtime.DeepCopy()
-		product2Name := fmt.Sprintf("product-%s", randNum())
 		runtime2.Namespace = tmpNamespaceName
 		runtime2.Spec.Product = product2Name
-		err := k8sClient.Create(ctx, runtime2)
+		runtime2.Spec.Destination.Environment = env2.Name
+		err = k8sClient.Create(ctx, runtime2)
 		Expect(err).Should(BeNil())
 		cleanBox = append(cleanBox, runtime2)
 
 		err = runtime.ValidateCreate()
 		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("when namespace is same by cluster is not the same, create will successed", func() {
+		var err error
+
+		err = k8sClient.Create(ctx, source)
+		Expect(err).Should(BeNil())
+		err = waitForIndexUpdated(&CodeRepoList{}, fields.OneTermEqualSelector(SelectFieldMetaDataName, source.Name))
+
+		Expect(err).Should(BeNil())
+		product2Name := fmt.Sprintf("%s-2", runtime.Spec.Product)
+
+		namespace2 := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: product2Name,
+			},
+		}
+		err = k8sClient.Create(ctx, namespace2)
+		Expect(err).Should(BeNil())
+		cleanBoxNamespace = append(cleanBoxNamespace, namespace2)
+
+		env2 := env.DeepCopy()
+		env2.ResourceVersion = ""
+		env2.Namespace = product2Name
+		env2.Spec.Product = product2Name
+		env2.Spec.Cluster = fmt.Sprintf("%s-2", env.Spec.Cluster)
+		err = k8sClient.Create(ctx, env2)
+		Expect(err).Should(BeNil())
+		cleanBox = append(cleanBox, env2)
+
+		runtime2 := runtime.DeepCopy()
+		runtime2.Namespace = tmpNamespaceName
+		runtime2.Spec.Product = product2Name
+		runtime2.Spec.Destination.Environment = env2.Name
+		err = k8sClient.Create(ctx, runtime2)
+		Expect(err).Should(BeNil())
+		cleanBox = append(cleanBox, runtime2)
+
+		err = runtime.ValidateCreate()
+		Expect(err).Should(BeNil())
 	})
 })

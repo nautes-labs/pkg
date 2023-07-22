@@ -218,8 +218,9 @@ func (c *ValidateClientFromK8s) ListDeploymentRuntimes(ctx context.Context, prod
 
 func (c *ValidateClientFromK8s) ListProjectPipelineRuntimes(ctx context.Context, productName string) ([]ProjectPipelineRuntime, error) {
 	runtimeList := &ProjectPipelineRuntimeList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(productName),
+	listOpts := []client.ListOption{}
+	if productName != "" {
+		listOpts = append(listOpts, client.InNamespace(productName))
 	}
 	if err := c.List(ctx, runtimeList, listOpts...); err != nil {
 		return nil, err
@@ -267,6 +268,7 @@ type Runtime interface {
 	GetProduct() string
 	GetName() string
 	GetDestination() string
+	GetNamespaces() []string
 }
 
 func GetClusterByRuntime(ctx context.Context, client ValidateClient, runtime Runtime) (*Cluster, error) {
@@ -275,4 +277,12 @@ func GetClusterByRuntime(ctx context.Context, client ValidateClient, runtime Run
 		return nil, err
 	}
 	return client.GetCluster(ctx, env.Spec.Cluster)
+}
+
+func convertArrayToBoolMap(in []string) map[string]bool {
+	out := map[string]bool{}
+	for _, str := range in {
+		out[str] = true
+	}
+	return out
 }

@@ -185,8 +185,10 @@ spec:
                   items:
                     properties:
                       group:
+                        minLength: 1
                         type: string
                       kind:
+                        minLength: 1
                         type: string
                     required:
                     - group

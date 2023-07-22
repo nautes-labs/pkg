@@ -1,7 +1,7 @@
 # Package
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![golang](https://img.shields.io/badge/golang-v1.20.0-brightgreen)](https://go.dev/doc/install)
-[![version](https://img.shields.io/badge/version-v0.3.2-green)]()
+[![version](https://img.shields.io/badge/version-v0.3.6-green)]()
 
 PKG 项目主要是用于存放 Nautes 中可重用的 CRD(Custom Resource Definition) 和 CRD Webhook 的源文件，这些 CRD 会被 Nautes 中多个组件依赖，除此之外，PKG 还包含一些可以被其他组件使用的公共库：
 

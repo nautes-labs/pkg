@@ -45,7 +45,16 @@ spec:
             description: DeploymentRuntimeSpec defines the desired state of DeploymentRuntime
             properties:
               destination:
-                type: string
+                properties:
+                  environment:
+                    type: string
+                  namespaces:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - environment
+                type: object
               manifestSource:
                 properties:
                   codeRepo:
@@ -57,11 +66,6 @@ spec:
                 required:
                 - path
                 type: object
-              namespaces:
-                description: Namespaces are the namespaces required for this runtime.
-                items:
-                  type: string
-                type: array
               product:
                 type: string
               projectsRef:
@@ -148,7 +152,16 @@ spec:
                 nullable: true
                 properties:
                   destination:
-                    type: string
+                    properties:
+                      environment:
+                        type: string
+                      namespaces:
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - environment
+                    type: object
                   manifestSource:
                     properties:
                       codeRepo:

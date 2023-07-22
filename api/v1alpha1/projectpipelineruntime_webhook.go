@@ -183,6 +183,26 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 	return nil
 }
 
+// Compare If true is returned, it means that the resource is duplicated
+func (p *ProjectPipelineRuntime) Compare(obj client.Object) (bool, error) {
+	val, ok := obj.(*ProjectPipelineRuntime)
+	if !ok {
+		return false, fmt.Errorf("the resource %s type is inconsistent", obj.GetName())
+	}
+
+	for i := 0; i < len(p.Spec.Pipelines); i++ {
+		for j := 0; j < len(val.Spec.Pipelines); j++ {
+			if p.Spec.PipelineSource == val.Spec.PipelineSource &&
+				p.Spec.Destination == val.Spec.Destination &&
+				p.Spec.Pipelines[i].Path == val.Spec.Pipelines[j].Path {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=projectpipelineruntimes,verbs=get;list
 
 func init() {

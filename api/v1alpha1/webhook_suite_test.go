@@ -51,6 +51,7 @@ var mgr manager.Manager
 var ctx context.Context
 var cancel context.CancelFunc
 var logger logr.Logger
+var mgrClient client.Client
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -118,6 +119,7 @@ var _ = BeforeSuite(func() {
 	})
 
 	KubernetesClient = mgr.GetClient()
+	mgrClient = mgr.GetClient()
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(ctx)
@@ -223,4 +225,22 @@ func waitForCacheUpdateCluster(k8sClient client.Client, cluster *Cluster) error 
 		time.Sleep(time.Second)
 	}
 	return fmt.Errorf("wait cache update timeout %s", cluster.Name)
+}
+
+func waitForIndexUpdated(obj client.ObjectList, selector fields.Selector) error {
+	listOpts := &client.ListOptions{
+		FieldSelector: selector,
+	}
+
+	for i := 0; i < 10; i++ {
+		if err := mgrClient.List(context.Background(), obj, listOpts); err != nil {
+			continue
+		}
+		objList := reflect.ValueOf(obj).Elem()
+		if objList.FieldByName("Items").Len() != 0 {
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("waiting for index updated time out")
 }

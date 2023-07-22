@@ -103,7 +103,10 @@ var _ = Describe("cluster webhook", func() {
 					TargetRevision: "HEAD",
 					Path:           "/basepoint",
 				},
-				Destination: env.Name,
+				Destination: DeploymentRuntimesDestination{
+					Environment: env.Name,
+					Namespaces:  []string{},
+				},
 			},
 		}
 

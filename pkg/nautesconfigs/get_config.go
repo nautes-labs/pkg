@@ -127,7 +127,7 @@ func NewConfigInstanceForK8s(namespace, configMap string, kubeconfig string) (*C
 	return NewConfig(cm.Data["config"])
 }
 
-const DefaultNautesConfigPath = "/opt/nautes/configs/config.yaml"
+const DefaultNautesConfigPath = "/opt/nautes/configs/config"
 const EnvNautesConfigPath = "NAUTESCONFIGPATH"
 
 type configOptions struct {

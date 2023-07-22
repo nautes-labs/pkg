@@ -41,11 +41,12 @@ var _ = Describe("cluster webhook", func() {
 	var codeRepoBinding *CodeRepoBinding
 	BeforeEach(func() {
 		ctx = context.Background()
-		productName = fmt.Sprintf("product-%s", randNum())
-		projectName = fmt.Sprintf("project-%s", randNum())
+		seed := randNum()
+		productName = fmt.Sprintf("product-%s", seed)
+		projectName = fmt.Sprintf("project-%s", seed)
 		cluster = &Cluster{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("cluster-%s", randNum()),
+				Name:      fmt.Sprintf("cluster-%s", seed),
 				Namespace: nautesNamespaceName,
 			},
 			Spec: ClusterSpec{
@@ -69,7 +70,7 @@ var _ = Describe("cluster webhook", func() {
 
 		env = &Environment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("env-%s", randNum()),
+				Name:      fmt.Sprintf("env-%s", seed),
 				Namespace: ns.Name,
 			},
 			Spec: EnvironmentSpec{
@@ -81,7 +82,7 @@ var _ = Describe("cluster webhook", func() {
 
 		source = &CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("repo-%s", randNum()),
+				Name:      fmt.Sprintf("repo-%s", seed),
 				Namespace: ns.Name,
 			},
 			Spec: CodeRepoSpec{
@@ -100,7 +101,7 @@ var _ = Describe("cluster webhook", func() {
 
 		codeRepoBinding = &CodeRepoBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("binding-%s", randNum()),
+				Name:      fmt.Sprintf("binding-%s", seed),
 				Namespace: ns.Name,
 			},
 			Spec: CodeRepoBindingSpec{
@@ -111,9 +112,10 @@ var _ = Describe("cluster webhook", func() {
 			},
 		}
 
+		runtimeName := fmt.Sprintf("runtime-%s", seed)
 		runtime = &ProjectPipelineRuntime{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("runtime-%s", randNum()),
+				Name:      runtimeName,
 				Namespace: ns.Name,
 			},
 			Spec: ProjectPipelineRuntimeSpec{
@@ -123,7 +125,7 @@ var _ = Describe("cluster webhook", func() {
 				Destination:    env.Name,
 				EventSources: []EventSource{
 					{
-						Name: fmt.Sprintf("evName-%s", randNum()),
+						Name: fmt.Sprintf("evName-%s", seed),
 						Gitlab: &Gitlab{
 							RepoName: eventRepo.Name,
 							Revision: "main",

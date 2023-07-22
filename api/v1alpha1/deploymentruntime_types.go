@@ -28,20 +28,15 @@ type ManifestSource struct {
 type DeploymentRuntimeSpec struct {
 	Product string `json:"product,omitempty" yaml:"product"`
 	// +optional
-	// Namespaces are the namespaces required for this runtime.
-	Namespaces []string `json:"namespaces"`
+	ProjectsRef    []string                      `json:"projectsRef,omitempty" yaml:"projectsRef"`
+	ManifestSource ManifestSource                `json:"manifestSource,omitempty" yaml:"manifestSource"`
+	Destination    DeploymentRuntimesDestination `json:"destination" yaml:"destination"`
+}
+
+type DeploymentRuntimesDestination struct {
+	Environment string `json:"environment"`
 	// +optional
-	ProjectsRef    []string       `json:"projectsRef,omitempty" yaml:"projectsRef"`
-	ManifestSource ManifestSource `json:"manifestSource,omitempty" yaml:"manifestSource"`
-	Destination    string         `json:"destination" yaml:"destination"`
-}
-
-func (r *DeploymentRuntime) GetProduct() string {
-	return r.Spec.Product
-}
-
-func (r *DeploymentRuntime) GetDestination() string {
-	return r.Spec.Destination
+	Namespaces []string `json:"namespaces"`
 }
 
 // DeploymentRuntimeStatus defines the observed state of DeploymentRuntime
@@ -63,8 +58,8 @@ type IllegalProjectRef struct {
 }
 
 type DeployHistory struct {
-	ManifestSource ManifestSource `json:"manifestSource"`
-	Destination    string         `json:"destination"`
+	ManifestSource ManifestSource                `json:"manifestSource"`
+	Destination    DeploymentRuntimesDestination `json:"destination"`
 	// The URL of the coderepo in the last successfully deployed runtime
 	Source string `json:"source"`
 }
