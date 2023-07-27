@@ -9,3 +9,11 @@ spec:
       containers:
       - name: manager
         image: controller:latest
+        volumeMounts:
+        - name: nautes-configs
+          mountPath: /opt/nautes/configs/
+      volumes:
+      - name: nautes-configs
+        configMap:
+          name: nautes-configs
+
