@@ -89,8 +89,9 @@ func (r *CodeRepo) ValidateDelete() error {
 	return r.IsDeletable(context.TODO(), NewValidateClientFromK8s(k8sClient))
 }
 
-const defaultNamespaceFilePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-
+// GetURL Get the address of the repository address corresponding to CodeRepo
+// If the CodeRepo spec URL is not empty, return it directly,
+// Otherwise, the repository address will be spliced through the information of CodeRepoProvider and Product resources.
 func (r *CodeRepo) GetURL(spec CodeRepoSpec) (string, error) {
 	if spec.URL != "" {
 		return spec.URL, nil
@@ -102,7 +103,7 @@ func (r *CodeRepo) GetURL(spec CodeRepoSpec) (string, error) {
 
 		configs, err := nautesconfigs.NewNautesConfigFromFile()
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 
 		product := &Product{}
@@ -123,17 +124,26 @@ func (r *CodeRepo) GetURL(spec CodeRepoSpec) (string, error) {
 			return "", err
 		}
 
-		url := fmt.Sprintf("%v/%v/%v.git", provider.Spec.SSHAddress, product.Spec.Name, spec.RepoName)
+		if provider.Spec.SSHAddress == "" ||
+			product.Spec.Name == "" {
+			return "", fmt.Errorf("ssh base address of the codeRepoProvider %s or name of the product %s is empty", r.Spec.CodeRepoProvider, product.Spec.Name)
+		}
+
+		url := fmt.Sprintf("%s/%s/%s.git", provider.Spec.SSHAddress, product.Spec.Name, spec.RepoName)
+
 		return url, nil
-	} else {
-		return "", errors.New("the resource is not avaiable. if the url does not exist, it should contain coderepo provider and product resources")
 	}
+
+	return "", errors.New("the resource is not avaiable. if the url does not exist, it should contain coderepo provider and product resources")
 }
 
 func (r *CodeRepo) Validate() error {
 	url, err := r.GetURL(r.Spec)
 	if err != nil {
 		return err
+	}
+	if url == "" {
+		return fmt.Errorf("failed to get repository address the CodeRepo %s, the url value is empty", r.Name)
 	}
 
 	matched, err := regexp.MatchString(`^(ssh:\/\/)?git@(?:((?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}|[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(?:\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+):(?:(\d{1,5})\/)?([\w-]+)\/([\w.-]+)\.git$`, url)
@@ -142,7 +152,7 @@ func (r *CodeRepo) Validate() error {
 	}
 
 	if !matched {
-		return fmt.Errorf("the url %v is illegal", url)
+		return fmt.Errorf("the url %s is illegal", url)
 	}
 
 	return nil
