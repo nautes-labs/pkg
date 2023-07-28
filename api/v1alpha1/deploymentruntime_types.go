@@ -15,11 +15,7 @@
 package v1alpha1
 
 import (
-	"fmt"
-	"reflect"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ManifestSource struct {
@@ -32,17 +28,15 @@ type ManifestSource struct {
 type DeploymentRuntimeSpec struct {
 	Product string `json:"product,omitempty" yaml:"product"`
 	// +optional
-	ProjectsRef    []string       `json:"projectsRef,omitempty" yaml:"projectsRef"`
-	ManifestSource ManifestSource `json:"manifestSource,omitempty" yaml:"manifestSource"`
-	Destination    string         `json:"destination" yaml:"destination"`
+	ProjectsRef    []string                      `json:"projectsRef,omitempty" yaml:"projectsRef"`
+	ManifestSource ManifestSource                `json:"manifestSource,omitempty" yaml:"manifestSource"`
+	Destination    DeploymentRuntimesDestination `json:"destination" yaml:"destination"`
 }
 
-func (r *DeploymentRuntime) GetProduct() string {
-	return r.Spec.Product
-}
-
-func (r *DeploymentRuntime) GetDestination() string {
-	return r.Spec.Destination
+type DeploymentRuntimesDestination struct {
+	Environment string `json:"environment"`
+	// +optional
+	Namespaces []string `json:"namespaces"`
 }
 
 // DeploymentRuntimeStatus defines the observed state of DeploymentRuntime
@@ -64,8 +58,8 @@ type IllegalProjectRef struct {
 }
 
 type DeployHistory struct {
-	ManifestSource ManifestSource `json:"manifestSource"`
-	Destination    string         `json:"destination"`
+	ManifestSource ManifestSource                `json:"manifestSource"`
+	Destination    DeploymentRuntimesDestination `json:"destination"`
 	// The URL of the coderepo in the last successfully deployed runtime
 	Source string `json:"source"`
 }
@@ -73,7 +67,7 @@ type DeployHistory struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName=dr
-//+kubebuilder:printcolumn:name="Destination",type=string,JSONPath=".spec.destination"
+//+kubebuilder:printcolumn:name="Destination",type=string,JSONPath=".spec.destination.environment"
 //+kubebuilder:printcolumn:name="CodeRepo",type=string,JSONPath=".spec.manifestSource.codeRepo"
 
 // DeploymentRuntime is the Schema for the deploymentruntimes API
@@ -96,20 +90,4 @@ type DeploymentRuntimeList struct {
 
 func init() {
 	SchemeBuilder.Register(&DeploymentRuntime{}, &DeploymentRuntimeList{})
-}
-
-// Compare If true is returned, it means that the resource is duplicated
-func (d *DeploymentRuntime) Compare(obj client.Object) (bool, error) {
-	val, ok := obj.(*DeploymentRuntime)
-	if !ok {
-		return false, fmt.Errorf("the resource %s type is inconsistent", obj.GetName())
-	}
-
-	if reflect.DeepEqual(d.Spec.ManifestSource, val.Spec.ManifestSource) &&
-		val.Spec.Product == d.Spec.Product &&
-		val.Spec.Destination == d.Spec.Destination {
-		return true, nil
-	}
-
-	return false, nil
 }

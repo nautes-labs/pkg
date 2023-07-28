@@ -15,10 +15,7 @@
 package v1alpha1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Gitlab struct {
@@ -95,34 +92,6 @@ type ProjectPipelineRuntimeSpec struct {
 	PipelineTriggers []PipelineTrigger `json:"pipelineTriggers,omitempty"`
 }
 
-func (r *ProjectPipelineRuntime) GetProduct() string {
-	return r.Namespace
-}
-
-func (r *ProjectPipelineRuntime) GetDestination() string {
-	return r.Spec.Destination
-}
-
-func (r *ProjectPipelineRuntime) GetEventSource(name string) (*EventSource, error) {
-	for _, eventSource := range r.Spec.EventSources {
-		if eventSource.Name == name {
-			return &eventSource, nil
-		}
-	}
-
-	return nil, fmt.Errorf("can not find event source %s in runtime", name)
-}
-
-func (r *ProjectPipelineRuntime) GetPipeline(name string) (*Pipeline, error) {
-	for _, pipeline := range r.Spec.Pipelines {
-		if pipeline.Name == name {
-			return &pipeline, nil
-		}
-	}
-
-	return nil, fmt.Errorf("can not find pipeline %s in runtime", name)
-}
-
 // ProjectPipelineRuntimeStatus defines the observed state of ProjectPipelineRuntime
 type ProjectPipelineRuntimeStatus struct {
 	// +optional
@@ -167,24 +136,4 @@ type ProjectPipelineRuntimeList struct {
 
 func init() {
 	SchemeBuilder.Register(&ProjectPipelineRuntime{}, &ProjectPipelineRuntimeList{})
-}
-
-// Compare If true is returned, it means that the resource is duplicated
-func (p *ProjectPipelineRuntime) Compare(obj client.Object) (bool, error) {
-	val, ok := obj.(*ProjectPipelineRuntime)
-	if !ok {
-		return false, fmt.Errorf("the resource %s type is inconsistent", obj.GetName())
-	}
-
-	for i := 0; i < len(p.Spec.Pipelines); i++ {
-		for j := 0; j < len(val.Spec.Pipelines); j++ {
-			if p.Spec.PipelineSource == val.Spec.PipelineSource &&
-				p.Spec.Destination == val.Spec.Destination &&
-				p.Spec.Pipelines[i].Path == val.Spec.Pipelines[j].Path {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
 }

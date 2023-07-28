@@ -47,7 +47,7 @@ func (r *ProjectPipelineRuntime) ValidateCreate() error {
 		return err
 	}
 
-	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientK8s{Client: client})
+	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientFromK8s{Client: client})
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (r *ProjectPipelineRuntime) ValidateUpdate(old runtime.Object) error {
 		return nil
 	}
 
-	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientK8s{Client: client})
+	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientFromK8s{Client: client})
 	if err != nil {
 		return err
 	}
@@ -183,14 +183,35 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 	return nil
 }
 
+// Compare If true is returned, it means that the resource is duplicated
+func (p *ProjectPipelineRuntime) Compare(obj client.Object) (bool, error) {
+	val, ok := obj.(*ProjectPipelineRuntime)
+	if !ok {
+		return false, fmt.Errorf("the resource %s type is inconsistent", obj.GetName())
+	}
+
+	for i := 0; i < len(p.Spec.Pipelines); i++ {
+		for j := 0; j < len(val.Spec.Pipelines); j++ {
+			if p.Spec.PipelineSource == val.Spec.PipelineSource &&
+				p.Spec.Destination == val.Spec.Destination &&
+				p.Spec.Pipelines[i].Path == val.Spec.Pipelines[j].Path {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=projectpipelineruntimes,verbs=get;list
 
 func init() {
-	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromPipelineRuntime)
-	GetEnvironmentSubResourceFunctions = append(GetEnvironmentSubResourceFunctions, GetDependentResourcesOfEnvironmentFromPipelineRuntime)
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, getDependentResourcesOfClusterFromPipelineRuntime)
+	GetEnvironmentSubResourceFunctions = append(GetEnvironmentSubResourceFunctions, getDependentResourcesOfEnvironmentFromPipelineRuntime)
+	GetCoderepoSubResourceFunctions = append(GetCoderepoSubResourceFunctions, getDependentResourcesOfCodeRepoFromPipelineRuntime)
 }
 
-func GetDependentResourcesOfClusterFromPipelineRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+func getDependentResourcesOfClusterFromPipelineRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
 	runtimeList := &ProjectPipelineRuntimeList{}
 
 	if err := k8sClient.List(ctx, runtimeList); err != nil {
@@ -206,15 +227,40 @@ func GetDependentResourcesOfClusterFromPipelineRuntime(ctx context.Context, k8sC
 	return dependencies, nil
 }
 
-func GetDependentResourcesOfEnvironmentFromPipelineRuntime(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error) {
-	runtimes, err := validateClient.ListProjectPipelineRuntime(ctx, productName)
+func getDependentResourcesOfEnvironmentFromPipelineRuntime(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error) {
+	runtimes, err := validateClient.ListProjectPipelineRuntimes(ctx, productName)
 	if err != nil {
 		return nil, err
 	}
 
 	dependencies := []string{}
-	for _, runtime := range runtimes.Items {
+	for _, runtime := range runtimes {
 		if runtime.Spec.Destination == envName {
+			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s", runtime.Name))
+		}
+	}
+
+	return dependencies, nil
+}
+
+func getDependentResourcesOfCodeRepoFromPipelineRuntime(ctx context.Context, client ValidateClient, CodeRepoName string) ([]string, error) {
+	codeRepo, err := client.GetCodeRepo(ctx, CodeRepoName)
+	if err != nil {
+		return nil, err
+	}
+
+	if codeRepo.Spec.Product == "" {
+		return nil, fmt.Errorf("product of code repo %s is empty", getCodeRepoName(codeRepo))
+	}
+
+	runtimes, err := client.ListProjectPipelineRuntimes(ctx, codeRepo.Spec.Product)
+	if err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, runtime := range runtimes {
+		if runtime.Spec.PipelineSource == CodeRepoName {
 			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s", runtime.Name))
 		}
 	}

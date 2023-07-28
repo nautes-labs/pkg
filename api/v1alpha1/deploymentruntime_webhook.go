@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,7 +49,7 @@ func (r *DeploymentRuntime) ValidateCreate() error {
 		return err
 	}
 
-	IllegalProjectRefs, err := r.Validate(context.Background(), &ValidateClientK8s{Client: k8sClient})
+	IllegalProjectRefs, err := r.Validate(context.Background(), NewValidateClientFromK8s(k8sClient))
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func (r *DeploymentRuntime) ValidateUpdate(old runtime.Object) error {
 		return nil
 	}
 
-	IllegalProjectRefs, err := r.Validate(context.Background(), &ValidateClientK8s{Client: k8sClient})
+	IllegalProjectRefs, err := r.Validate(context.Background(), NewValidateClientFromK8s(k8sClient))
 	if err != nil {
 		return err
 	}
@@ -112,8 +113,8 @@ func (r *DeploymentRuntime) Validate(ctx context.Context, validateClient Validat
 		manifest := oldRuntime.Spec.ManifestSource
 		// Runtime destination cant not change after deployment.
 		// If runtime has already deploy, it should not be block when other runtime use same config.
-		if r.Spec.Destination != oldRuntime.Spec.Destination {
-			return nil, fmt.Errorf("the deployed destination cannot be changed")
+		if r.Spec.Destination.Environment != oldRuntime.Spec.Destination.Environment {
+			return nil, fmt.Errorf("the deployed environment cannot be changed")
 		} else if r.Spec.ManifestSource.CodeRepo == manifest.CodeRepo &&
 			r.Spec.ManifestSource.Path == manifest.Path &&
 			r.Spec.ManifestSource.TargetRevision == manifest.TargetRevision {
@@ -121,30 +122,151 @@ func (r *DeploymentRuntime) Validate(ctx context.Context, validateClient Validat
 		}
 	}
 
-	cluster, err := GetClusterByRuntime(ctx, validateClient, r)
-	if err != nil {
-		return nil, fmt.Errorf("get cluster by runtime failed: %w", err)
-	}
-	if cluster.Spec.Usage != CLUSTER_USAGE_WORKER || cluster.Spec.WorkerType != ClusterWorkTypeDeployment {
-		return nil, fmt.Errorf("cluster is not a deployment cluster")
+	validater := deploymentRuntimeValidater{
+		ValidateClient: validateClient,
 	}
 
-	runtimeList, err := validateClient.ListDeploymentRuntime(ctx, r.Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("get deployment runtime list failed: %w", err)
+	if err := validater.checkRuntimeCanDeployOnCluster(ctx, *r); err != nil {
+		return nil, err
 	}
 
-	for _, runtime := range runtimeList.Items {
-		isDuplicate, err := r.Compare(&runtime)
-		if err != nil {
-			return nil, err
-		}
-		if isDuplicate && runtime.Name != r.Name {
-			return nil, fmt.Errorf("can not deploy same repo to the same destination")
-		}
+	if err := validater.checkRuntimeIsDuplicate(ctx, *r); err != nil {
+		return nil, err
+	}
+
+	if err := validater.checkNamespacesIsUsed(ctx, *r); err != nil {
+		return nil, err
 	}
 
 	return r.ValidateProjectRef(ctx, validateClient)
+}
+
+type deploymentRuntimeValidater struct {
+	ValidateClient
+}
+
+func (v *deploymentRuntimeValidater) checkRuntimeCanDeployOnCluster(ctx context.Context, runtime DeploymentRuntime) error {
+	cluster, err := GetClusterByRuntime(ctx, v.ValidateClient, &runtime)
+	if err != nil {
+		return fmt.Errorf("get cluster by runtime failed: %w", err)
+	}
+
+	if cluster.Spec.Usage != CLUSTER_USAGE_WORKER || cluster.Spec.WorkerType != ClusterWorkTypeDeployment {
+		return fmt.Errorf("cluster is not a deployment cluster")
+	}
+
+	componentNamespaces := cluster.Spec.ComponentsList.GetNamespacesMap()
+	for _, namespace := range runtime.Spec.Destination.Namespaces {
+		if componentNamespaces[namespace] {
+			return fmt.Errorf("deployment runtime can not use component namespace %s", namespace)
+		}
+	}
+
+	return nil
+}
+
+func (v *deploymentRuntimeValidater) checkRuntimeIsDuplicate(ctx context.Context, runtime DeploymentRuntime) error {
+	runtimes, err := v.ListDeploymentRuntimes(ctx, runtime.GetProduct())
+	if err != nil {
+		return fmt.Errorf("list deployment runtimes failed: %w", err)
+	}
+
+	for _, runtimeInProduct := range runtimes {
+		if runtimeInProduct.Name == runtime.Name {
+			continue
+		}
+		isDuplicate, err := runtime.Compare(&runtimeInProduct)
+		if err != nil {
+			return err
+		}
+		if isDuplicate {
+			return fmt.Errorf("can not deploy same repo to the same destination")
+		}
+	}
+	return nil
+}
+
+func (v *deploymentRuntimeValidater) checkNamespacesIsUsed(ctx context.Context, runtime DeploymentRuntime) error {
+	productName := runtime.GetProduct()
+	env, err := v.GetEnvironment(ctx, productName, runtime.Spec.Destination.Environment)
+	if err != nil {
+		return nil
+	}
+
+	runtimeNamespacesMap := convertArrayToBoolMap(runtime.Spec.Destination.Namespaces)
+
+	namespaceUsage, err := v.getUsedNamespacesInCluster(ctx, env.Spec.Cluster)
+	usedNamespaces := []string{}
+	for _, usage := range namespaceUsage {
+		if usage.productName == productName {
+			continue
+		}
+		for _, namespaceName := range usage.namespaces {
+			if runtimeNamespacesMap[namespaceName] {
+				usedNamespaces = append(usedNamespaces, namespaceName)
+			}
+		}
+	}
+
+	if len(usedNamespaces) != 0 {
+		return fmt.Errorf("namespaces [%s] is used by other product", strings.Join(usedNamespaces, "|"))
+	}
+
+	return nil
+}
+
+type productNamespaceUsage struct {
+	namespaces  []string
+	productName string
+}
+
+func (v *deploymentRuntimeValidater) getUsedNamespacesInCluster(ctx context.Context, cluster string) ([]productNamespaceUsage, error) {
+	envClusterMapping := map[string]string{}
+	runtimes, err := v.ListDeploymentRuntimes(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	productUsedNamespacesMap := map[string]map[string]bool{}
+	for _, runtime := range runtimes {
+		envName := runtime.Spec.Destination.Environment
+		productID := runtime.GetProduct()
+
+		envMapKey := fmt.Sprintf("%s|%s", productID, envName)
+
+		if _, ok := envClusterMapping[envMapKey]; !ok {
+			env, err := v.GetEnvironment(ctx, runtime.GetProduct(), envName)
+			if err != nil {
+				return nil, err
+			}
+			envClusterMapping[envMapKey] = env.Spec.Cluster
+		}
+
+		if envClusterMapping[envMapKey] != cluster {
+			continue
+		}
+
+		if productUsedNamespacesMap[productID] == nil {
+			productUsedNamespacesMap[productID] = map[string]bool{}
+		}
+		for _, namespace := range runtime.Spec.Destination.Namespaces {
+			productUsedNamespacesMap[productID][namespace] = true
+		}
+	}
+
+	namespacesUsage := make([]productNamespaceUsage, 0)
+	for productName, runtimeNamespacesMap := range productUsedNamespacesMap {
+		namespaces := []string{}
+		for namespace := range runtimeNamespacesMap {
+			namespaces = append(namespaces, namespace)
+		}
+
+		namespacesUsage = append(namespacesUsage, productNamespaceUsage{
+			namespaces:  namespaces,
+			productName: productName,
+		})
+	}
+	return namespacesUsage, nil
 }
 
 func (r *DeploymentRuntime) ValidateProjectRef(ctx context.Context, validateClient ValidateClient) ([]IllegalProjectRef, error) {
@@ -166,14 +288,31 @@ func (r *DeploymentRuntime) ValidateProjectRef(ctx context.Context, validateClie
 	return illegalProjectRefs, nil
 }
 
+// Compare If true is returned, it means that the resource is duplicated
+func (d *DeploymentRuntime) Compare(obj client.Object) (bool, error) {
+	val, ok := obj.(*DeploymentRuntime)
+	if !ok {
+		return false, fmt.Errorf("the resource %s type is inconsistent", obj.GetName())
+	}
+
+	if reflect.DeepEqual(d.Spec.ManifestSource, val.Spec.ManifestSource) &&
+		val.Spec.Product == d.Spec.Product &&
+		val.Spec.Destination.Environment == d.Spec.Destination.Environment {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list
 
 func init() {
-	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromDeploymentRuntime)
-	GetEnvironmentSubResourceFunctions = append(GetEnvironmentSubResourceFunctions, GetDependentResourcesOfEnvironmentFromDeploymentRuntime)
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, getDependentResourcesOfClusterFromDeploymentRuntime)
+	GetEnvironmentSubResourceFunctions = append(GetEnvironmentSubResourceFunctions, getDependentResourcesOfEnvironmentFromDeploymentRuntime)
+	GetCoderepoSubResourceFunctions = append(GetCoderepoSubResourceFunctions, getDependentResourcesOfCodeRepoFromDeploymentRuntime)
 }
 
-func GetDependentResourcesOfClusterFromDeploymentRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+func getDependentResourcesOfClusterFromDeploymentRuntime(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
 	runtimeList := &DeploymentRuntimeList{}
 
 	if err := k8sClient.List(ctx, runtimeList); err != nil {
@@ -189,16 +328,41 @@ func GetDependentResourcesOfClusterFromDeploymentRuntime(ctx context.Context, k8
 	return dependencies, nil
 }
 
-func GetDependentResourcesOfEnvironmentFromDeploymentRuntime(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error) {
-	runtimes, err := validateClient.ListDeploymentRuntime(ctx, productName)
+func getDependentResourcesOfEnvironmentFromDeploymentRuntime(ctx context.Context, validateClient ValidateClient, productName, envName string) ([]string, error) {
+	runtimes, err := validateClient.ListDeploymentRuntimes(ctx, productName)
 	if err != nil {
 		return nil, err
 	}
 
 	dependencies := []string{}
-	for _, runtime := range runtimes.Items {
-		if runtime.Spec.Destination == envName {
-			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s", runtime.Name))
+	for _, runtime := range runtimes {
+		if runtime.Spec.Destination.Environment == envName {
+			dependencies = append(dependencies, fmt.Sprintf("deploymentRuntime/%s", runtime.Name))
+		}
+	}
+
+	return dependencies, nil
+}
+
+func getDependentResourcesOfCodeRepoFromDeploymentRuntime(ctx context.Context, client ValidateClient, CodeRepoName string) ([]string, error) {
+	codeRepo, err := client.GetCodeRepo(ctx, CodeRepoName)
+	if err != nil {
+		return nil, err
+	}
+
+	if codeRepo.Spec.Product == "" {
+		return nil, fmt.Errorf("product of code repo %s is empty", getCodeRepoName(codeRepo))
+	}
+
+	runtimes, err := client.ListDeploymentRuntimes(ctx, codeRepo.Spec.Product)
+	if err != nil {
+		return nil, err
+	}
+
+	dependencies := []string{}
+	for _, runtime := range runtimes {
+		if runtime.Spec.ManifestSource.CodeRepo == CodeRepoName {
+			dependencies = append(dependencies, fmt.Sprintf("deploymentRuntime/%s", runtime.Name))
 		}
 	}
 

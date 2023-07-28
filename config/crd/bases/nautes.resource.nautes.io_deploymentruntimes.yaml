@@ -18,7 +18,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.destination
+    - jsonPath: .spec.destination.environment
       name: Destination
       type: string
     - jsonPath: .spec.manifestSource.codeRepo
@@ -45,7 +45,16 @@ spec:
             description: DeploymentRuntimeSpec defines the desired state of DeploymentRuntime
             properties:
               destination:
-                type: string
+                properties:
+                  environment:
+                    type: string
+                  namespaces:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - environment
+                type: object
               manifestSource:
                 properties:
                   codeRepo:
@@ -143,7 +152,16 @@ spec:
                 nullable: true
                 properties:
                   destination:
-                    type: string
+                    properties:
+                      environment:
+                        type: string
+                      namespaces:
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - environment
+                    type: object
                   manifestSource:
                     properties:
                       codeRepo:

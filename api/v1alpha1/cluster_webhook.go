@@ -101,7 +101,7 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 		return nil
 	}
 
-	if err := r.StaticCheck(); err != nil {
+	if err := r.staticCheck(); err != nil {
 		return err
 	}
 
@@ -126,7 +126,7 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 	return nil
 }
 
-func (r *Cluster) StaticCheck() error {
+func (r *Cluster) staticCheck() error {
 	if r.Spec.Usage == CLUSTER_USAGE_HOST {
 		if r.Spec.ClusterType != CLUSTER_TYPE_PHYSICAL {
 			return errors.New("host cluster can not be a virautl cluster")
@@ -145,6 +145,14 @@ func (r *Cluster) StaticCheck() error {
 	if r.Spec.ClusterType == CLUSTER_TYPE_VIRTUAL &&
 		r.Spec.HostCluster == "" {
 		return errors.New("virtual cluster must have a host")
+	}
+
+	reservedNamespace := r.Spec.ComponentsList.GetNamespacesMap()
+
+	for namespace := range r.Spec.ReservedNamespacesAllowedProducts {
+		if !reservedNamespace[namespace] {
+			return fmt.Errorf("namespace %s is not in compnent list", namespace)
+		}
 	}
 
 	return nil
@@ -171,10 +179,10 @@ func (r *Cluster) GetDependencies(ctx context.Context, k8sClient client.Client) 
 }
 
 func init() {
-	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, GetDependentResourcesOfClusterFromCluster)
+	GetClusterSubResourceFunctions = append(GetClusterSubResourceFunctions, getDependentResourcesOfClusterFromCluster)
 }
 
-func GetDependentResourcesOfClusterFromCluster(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
+func getDependentResourcesOfClusterFromCluster(ctx context.Context, k8sClient client.Client, clusterName string) ([]string, error) {
 	clusterList := &ClusterList{}
 	if err := k8sClient.List(ctx, clusterList); err != nil {
 		return nil, err

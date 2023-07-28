@@ -35,9 +35,13 @@ var _ = Describe("cluster webhook", func() {
 	var ctx context.Context
 	var productName string
 	var ns *corev1.Namespace
+	var componentName = "hnc"
+	var componentNamespace = "hnc"
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		productName = fmt.Sprintf("product-%s", randNum())
+
 		cluster = &Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("cluster-%s", randNum()),
@@ -50,6 +54,19 @@ var _ = Describe("cluster webhook", func() {
 				Usage:       CLUSTER_USAGE_WORKER,
 				HostCluster: "",
 				WorkerType:  ClusterWorkTypeDeployment,
+				ComponentsList: ComponentsList{
+					MultiTenant: &Component{
+						Name:      componentName,
+						Namespace: componentNamespace,
+					},
+					Deployment: &Component{
+						Name:      "Placeholder",
+						Namespace: "Placeholder_Namespace",
+					},
+				},
+				ReservedNamespacesAllowedProducts: map[string][]string{
+					componentNamespace: {productName},
+				},
 			},
 		}
 
@@ -86,7 +103,10 @@ var _ = Describe("cluster webhook", func() {
 					TargetRevision: "HEAD",
 					Path:           "/basepoint",
 				},
-				Destination: env.Name,
+				Destination: DeploymentRuntimesDestination{
+					Environment: env.Name,
+					Namespaces:  []string{},
+				},
 			},
 		}
 
@@ -140,6 +160,14 @@ var _ = Describe("cluster webhook", func() {
 		Expect(isTimeout).Should(BeFalse())
 
 		err = cluster.ValidateDelete()
+		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("if reserved namespace not in component list, create will failed", func() {
+		cluster.Spec.ReservedNamespacesAllowedProducts = map[string][]string{
+			"fake": {},
+		}
+		err := cluster.ValidateCreate()
 		Expect(err).ShouldNot(BeNil())
 	})
 })

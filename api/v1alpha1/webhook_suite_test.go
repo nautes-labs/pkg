@@ -45,16 +45,17 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var nautesNamespaceName = "nautes"
+var tmpNamespaceName = "tmp"
 
 var mgr manager.Manager
 var ctx context.Context
 var cancel context.CancelFunc
 var logger logr.Logger
+var mgrClient client.Client
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Api Webhookd Suite")
-
 }
 
 var _ = BeforeSuite(func() {
@@ -85,6 +86,13 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tmpNamespaceName,
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+
 	ctx, cancel = context.WithCancel(context.TODO())
 	logger = logf.FromContext(ctx)
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
@@ -111,6 +119,7 @@ var _ = BeforeSuite(func() {
 	})
 
 	KubernetesClient = mgr.GetClient()
+	mgrClient = mgr.GetClient()
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(ctx)
@@ -216,4 +225,22 @@ func waitForCacheUpdateCluster(k8sClient client.Client, cluster *Cluster) error 
 		time.Sleep(time.Second)
 	}
 	return fmt.Errorf("wait cache update timeout %s", cluster.Name)
+}
+
+func waitForIndexUpdated(obj client.ObjectList, selector fields.Selector) error {
+	listOpts := &client.ListOptions{
+		FieldSelector: selector,
+	}
+
+	for i := 0; i < 10; i++ {
+		if err := mgrClient.List(context.Background(), obj, listOpts); err != nil {
+			continue
+		}
+		objList := reflect.ValueOf(obj).Elem()
+		if objList.FieldByName("Items").Len() != 0 {
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("waiting for index updated time out")
 }

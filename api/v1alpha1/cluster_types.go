@@ -15,12 +15,7 @@
 package v1alpha1
 
 import (
-	"encoding/json"
-	"fmt"
-	"sort"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ClusterType string
@@ -69,21 +64,67 @@ type ClusterSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum="";pipeline;deployment
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
-	WorkerType ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
+	WorkerType     ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
+	ComponentsList ComponentsList  `json:"componentsList"`
+	// +optional
+	// ReservedNamespacesAllowedProducts key is namespace name, value is the product name list witch can use namespace.
+	ReservedNamespacesAllowedProducts map[string][]string `json:"reservedNamespacesAllowedProducts"`
+	// +optional
+	// ReservedNamespacesAllowedProducts key is product name, value is the list of cluster resources.
+	ProductAllowedClusterResources map[string][]ClusterResourceInfo `json:"productAllowedClusterResources"`
+}
+
+type ClusterResourceInfo struct {
+	// +kubebuilder:validation:MinLength=1
+	Kind string `json:"kind"`
+	// +kubebuilder:validation:MinLength=1
+	Group string `json:"group"`
+}
+
+type Component struct {
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+}
+
+// ComponentsList declares the specific components used by the cluster
+type ComponentsList struct {
+	// +optional
+	CertMgt *Component `json:"certMgt"`
+	// +optional
+	Deployment *Component `json:"deployment"`
+	// +optional
+	EventListener *Component `json:"eventListener"`
+	// +optional
+	IngressController *Component `json:"ingressController"`
+	// +optional
+	MultiTenant *Component `json:"multiTenant"`
+	// +optional
+	Pipeline *Component `json:"pipeline"`
+	// +optional
+	ProgressiveDelivery *Component `json:"progressiveDelivery"`
+	// +optional
+	SecretMgt *Component `json:"secretMgt"`
+	// +optional
+	SecretSync *Component `json:"secretSync"`
 }
 
 // ClusterStatus defines the observed state of Cluster
 type ClusterStatus struct {
 	// +optional
-	// +nullable
 	Conditions []metav1.Condition `json:"conditions,omitempty" yaml:"conditions"`
 	// +optional
 	MgtAuthStatus *MgtClusterAuthStatus `json:"mgtAuthStatus,omitempty" yaml:"mgtAuthStatus"`
 	// +optional
 	Sync2ArgoStatus *SyncCluster2ArgoStatus `json:"sync2ArgoStatus,omitempty" yaml:"sync2ArgoStatus"`
 	// +optional
-	// +nullable
 	EntryPoints map[string]ClusterEntryPoint `json:"entryPoints,omitempty" yaml:"entryPoints"`
+	// +optional
+	Warnings []Warning `json:"warnings"`
+	// +optional
+	// PruoductIDMap records the corresponding relationship between product name and product in kubernetes.
+	ProductIDMap map[string]string `json:"productIDMap"`
 }
 
 type ServiceType string
@@ -113,72 +154,13 @@ type SyncCluster2ArgoStatus struct {
 	SecretID        string      `json:"secretID" yaml:"secretID"`
 }
 
-func (status *ClusterStatus) GetConditions(conditionTypes map[string]bool) []metav1.Condition {
-	result := make([]metav1.Condition, 0)
-	for i := range status.Conditions {
-		condition := status.Conditions[i]
-		if ok := conditionTypes[condition.Type]; ok {
-			result = append(result, condition)
-		}
-
-	}
-	return result
-}
-
-func (status *ClusterStatus) SetConditions(conditions []metav1.Condition, evaluatedTypes map[string]bool) {
-	appConditions := make([]metav1.Condition, 0)
-	for i := 0; i < len(status.Conditions); i++ {
-		condition := status.Conditions[i]
-		if _, ok := evaluatedTypes[condition.Type]; !ok {
-			appConditions = append(appConditions, condition)
-		}
-	}
-	for i := range conditions {
-		condition := conditions[i]
-		eci := findConditionIndexByType(status.Conditions, condition.Type)
-		if eci >= 0 &&
-			status.Conditions[eci].Message == condition.Message &&
-			status.Conditions[eci].Status == condition.Status &&
-			status.Conditions[eci].Reason == condition.Reason {
-			// If we already have a condition of this type, only update the timestamp if something
-			// has changed.
-			status.Conditions[eci].LastTransitionTime = metav1.Now()
-			appConditions = append(appConditions, status.Conditions[eci])
-		} else {
-			// Otherwise we use the new incoming condition with an updated timestamp:
-			condition.LastTransitionTime = metav1.Now()
-			appConditions = append(appConditions, condition)
-		}
-	}
-	sort.Slice(appConditions, func(i, j int) bool {
-		left := appConditions[i]
-		right := appConditions[j]
-		return fmt.Sprintf("%s/%s/%v", left.Type, left.Message, left.LastTransitionTime) < fmt.Sprintf("%s/%s/%v", right.Type, right.Message, right.LastTransitionTime)
-	})
-	status.Conditions = appConditions
-}
-
-func (c *Cluster) SpecToJsonString() string {
-	specStr, err := json.Marshal(c.Spec)
-	if err != nil {
-		return ""
-	}
-	return string(specStr)
-}
-
-func GetClusterFromString(name, namespace string, specStr string) (*Cluster, error) {
-	var spec ClusterSpec
-	err := json.Unmarshal([]byte(specStr), &spec)
-	if err != nil {
-		return nil, err
-	}
-	return &Cluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: spec,
-	}, nil
+type Warning struct {
+	Type string `json:"type"`
+	// From is which operator recorded this warning.
+	From string `json:"from"`
+	// ID records the unique identifier of the warning.
+	ID      string `json:"id"`
+	Message string `json:"message"`
 }
 
 //+kubebuilder:object:root=true
@@ -208,9 +190,4 @@ type ClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&Cluster{}, &ClusterList{})
-}
-
-// Compare If true is returned, it means that the resource is duplicated
-func (c *Cluster) Compare(obj client.Object) (bool, error) {
-	return false, nil
 }

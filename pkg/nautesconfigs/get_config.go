@@ -16,6 +16,7 @@ package configs
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 
 	"github.com/nautes-labs/pkg/pkg/kubeconvert"
@@ -29,10 +30,12 @@ import (
 )
 
 const (
-	ENV_CFG_NAMESPACE     = "NATUESCFGNAMESPACE"
-	ENV_CFG_NAME          = "NATUESCFGNAME"
-	DEFAULT_CFG_NAMESPACE = "nautes"
-	DEFAULT_CFG_NAME      = "nautes-configs"
+	ENV_CFG_NAMESPACE      = "NATUESCFGNAMESPACE"
+	ENV_CFG_NAME           = "NATUESCFGNAME"
+	DEFAULT_CFG_NAMESPACE  = "nautes"
+	DEFAULT_CFG_NAME       = "nautes-configs"
+	DefaultConfigName      = "nautes"
+	DefaultConfigNamespace = "nautes-configs"
 )
 
 type NautesConfigs struct {
@@ -122,4 +125,71 @@ func NewConfigInstanceForK8s(namespace, configMap string, kubeconfig string) (*C
 	}
 
 	return NewConfig(cm.Data["config"])
+}
+
+const DefaultNautesConfigPath = "/opt/nautes/configs/config"
+const EnvNautesConfigPath = "NAUTESCONFIGPATH"
+
+type configOptions struct {
+	filePath  string
+	name      string
+	namespace string
+}
+
+type configFunction func(*configOptions)
+
+// NewNautesConfigFromFile will return a nautes config from specify path
+// If path is empty. It will try to find files based on environment variables and default values
+func NewNautesConfigFromFile(opts ...configFunction) (*Config, error) {
+	var filePath string
+
+	options := &configOptions{}
+	for _, fn := range opts {
+		fn(options)
+	}
+
+	filePathFromEnv, envExist := os.LookupEnv(EnvNautesConfigPath)
+
+	if options.filePath != "" {
+		filePath = options.filePath
+	} else if envExist {
+		filePath = filePathFromEnv
+	} else {
+		filePath = DefaultNautesConfigPath
+	}
+
+	configsByte, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewConfig(string(configsByte))
+}
+
+// NewNautesConfigFromKubernetes will return a nautes config from kubernetes
+func NewNautesConfigFromKubernetes(ctx context.Context, k8sClient client.Client, opts ...configFunction) (*Config, error) {
+	cm := &corev1.ConfigMap{}
+
+	options := &configOptions{
+		namespace: DefaultConfigNamespace,
+		name:      DefaultConfigName,
+	}
+
+	for _, fn := range opts {
+		fn(options)
+	}
+
+	namespacedNames := types.NamespacedName{
+		Namespace: options.namespace,
+		Name:      options.name,
+	}
+
+	if err := k8sClient.Get(ctx, namespacedNames, cm); err != nil {
+		return nil, err
+	}
+	return NewConfig(cm.Data["config"])
+}
+
+func FilePath(path string) configFunction {
+	return func(c *configOptions) { c.filePath = path }
 }
