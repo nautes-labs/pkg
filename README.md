@@ -1,4 +1,7 @@
 # Package
+
+⚠️**该代码库已停止更新，并将在未来的某个时间被移除，其代码已被合并至 [Nautes](https://github.com/nautes-labs/nautes)。**
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![golang](https://img.shields.io/badge/golang-v1.20.0-brightgreen)](https://go.dev/doc/install)
 [![version](https://img.shields.io/badge/version-v0.3.6-green)]()
